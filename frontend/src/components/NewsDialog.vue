@@ -90,4 +90,9 @@ export default {
     cursor: pointer;
     color: #888;
 }
+@media(max-width:768px){
+    .news-dialog{
+        padding: 0.5em 0.3em;
+    }
+}
 </style>

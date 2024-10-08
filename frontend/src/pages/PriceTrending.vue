@@ -93,17 +93,17 @@ export default {
     width: 100%;
 }
 
-
 .selects {
     display: flex;
     justify-content: flex-start;
+    flex-wrap: wrap;
 }
 
-.selects>select {
-    padding: .5em;
+.selects > select {
+    padding: 0.5em;
     font-size: 1.1em;
     margin-right: 1em;
-    border-radius: .5em;
+    border-radius: 0.5em;
     border: 1px solid #ccc;
     outline: none;
     cursor: pointer;
@@ -115,4 +115,47 @@ export default {
     box-sizing: border-box;
     padding: 1em;
 }
+
+@media (max-width: 768px) {
+    .wrapper {
+        padding: 1em 2em;
+    }
+
+    .content {
+        padding: 1em;
+    }
+
+    .selects {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .selects > select {
+        margin-bottom: 1em;
+        width: 100%;
+    }
+
+    .visualize > * {
+        width: 100%;
+        padding: 0.5em;
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    .visualize{
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    .selects > select{
+        margin-right: 0%;
+        width: 100%;
+    }
+
+}
+
 </style>
