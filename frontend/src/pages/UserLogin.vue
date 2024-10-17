@@ -111,4 +111,9 @@ form > input{
 #login:hover{
     background-color: #46b8da;
 }
+@media(max-width:768px){
+    .login-page{
+        padding: 1em;
+    }
+}
 </style>

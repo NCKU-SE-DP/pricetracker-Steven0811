@@ -103,4 +103,14 @@ export default {
     height: 30vh;
     width: 100wh;
 }
+@media (max-width:768px){
+    .chart-container{
+        width: 100%;
+    }
+
+    canvas{
+        overflow-x: auto;
+        width: 100%;
+    }
+}
 </style>
