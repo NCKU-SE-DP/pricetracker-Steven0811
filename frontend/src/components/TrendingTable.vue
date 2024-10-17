@@ -95,6 +95,7 @@ export default {
 <style scoped>
 .trending-table {
     margin-top: 2em;
+    overflow-x: auto;
 }
 
 table {
@@ -107,5 +108,11 @@ td {
     border: 1px solid #ccc;
     padding: 0.5em;
     text-align: center;
+}
+
+@media (max-width:768px){
+    table{
+        font-size: 0.8em;
+    }
 }
 </style>

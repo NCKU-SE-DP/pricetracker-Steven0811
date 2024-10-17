@@ -124,4 +124,10 @@ form > input{
 #register:hover{
     background-color: #46b8da;
 }
+
+@media(max-width:768px){
+    .register-page{
+        padding: 1em;
+    }
+}
 </style>
