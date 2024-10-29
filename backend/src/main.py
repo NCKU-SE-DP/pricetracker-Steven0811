@@ -22,11 +22,12 @@ from sqlalchemy.orm import relationship, sessionmaker
 
 Base = declarative_base()
 
+USER_NEWS_ASSOCIATION_TABLE_NAME = "user_news_upvotes"
 USERS_TABLE_NAME = "users"
-USER_NEWS_UPVOTES_TABLE_NAME = "user_news_upvotes"
 NEWS_ARTICLES_TABLE_NAME = "news_articles"
+
 user_news_association_table = Table(
-    USER_NEWS_UPVOTES_TABLE_NAME,
+    USER_NEWS_ASSOCIATION_TABLE_NAME,
     Base.metadata,
     Column("user_id", Integer, ForeignKey(f"{USERS_TABLE_NAME}.id"), primary_key=True),
     Column(
@@ -35,25 +36,22 @@ user_news_association_table = Table(
 )
 
 # from pydantic import BaseModel
-MAX_USERNAME_LENGTH= 50
-MAX_PASSWORD_LENGTH = 200
-NEWS_ARTICLE_MODEL_NAME = "NewsArticle"
-UPVOTED_BY_USERS_RELATIONSHIP = "upvoted_by_users"
 
+MAX_USERNAME_LENGTH = 50
+MAX_PASSWORD_HASH_LENGTH = 200
 
 class User(Base):
     __tablename__ = USERS_TABLE_NAME
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(MAX_USERNAME_LENGTH), unique=True, nullable=False)
-    hashed_password = Column(String(MAX_PASSWORD_LENGTH), nullable=False)
+    hashed_password = Column(String(MAX_PASSWORD_HASH_LENGTH), nullable=False)
     upvoted_news = relationship(
-        NEWS_ARTICLE_MODEL_NAME,
+        "NewsArticle",
         secondary=user_news_association_table,
-        back_populates=UPVOTED_BY_USERS_RELATIONSHIP,
+        back_populates="upvoted_by_users",
     )
 
-USER_MODEL_NAME = "User"
-UPVOTED_NEWS_RELATIONSHIP = "upvoted_news"
+
 class NewsArticle(Base):
     __tablename__ = NEWS_ARTICLES_TABLE_NAME
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -64,30 +62,36 @@ class NewsArticle(Base):
     summary = Column(Text, nullable=False)
     reason = Column(Text, nullable=False)
     upvoted_by_users = relationship(
-        USER_MODEL_NAME, secondary=user_news_association_table, back_populates=UPVOTED_BY_USERS_RELATIONSHIP
+        "User", secondary=user_news_association_table, back_populates="upvoted_news"
     )
 
+
 DATABASE_URL = "sqlite:///news_database.db"
-engine = create_engine(DATABASE_URL, echo=True)
+database_engine = create_engine(DATABASE_URL, echo=True)
 
-Base.metadata.create_all(engine)
+Base.metadata.create_all(database_engine)
 
-Session = sessionmaker(bind=engine)
+DatabaseSession = sessionmaker(bind=database_engine)
+
+SENTRY_DSN = "https://4001ffe917ccb261aa0e0c34026dc343@o4505702629834752.ingest.us.sentry.io/4507694792704000"
+SENTRY_TRACES_SAMPLE_RATE = 1.0
+SENTRY_PROFILES_SAMPLE_RATE = 1.0
 
 sentry_sdk.init(
-    dsn="https://4001ffe917ccb261aa0e0c34026dc343@o4505702629834752.ingest.us.sentry.io/4507694792704000",
-    traces_sample_rate=1.0,
-    profiles_sample_rate=1.0,
+    dsn=SENTRY_DSN,
+    traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+    profiles_sample_rate=SENTRY_PROFILES_SAMPLE_RATE,
 )
 
 app = FastAPI()
 background_scheduler = BackgroundScheduler()
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=database_engine)
 
-ALLOW_ORIGIN = "http://localhost:8080"
+ALLOWED_ORIGIN = "http://localhost:8080"
+
 app.add_middleware(
     CORSMiddleware,  # noqa
-    allow_origins=[ALLOW_ORIGIN],
+    allow_origins=[ALLOWED_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -265,19 +269,18 @@ def start_scheduler():
     background_scheduler.add_job(get_and_summarize_news, "interval", minutes=SCHEDULER_INTERVAL_MINUTES)
     background_scheduler.start()
 
-
 @app.on_event("shutdown")
 def shutdown_scheduler():
     background_scheduler.shutdown()
 
 
-password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 TOKER_URL = "/api/v1/users/login"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=TOKER_URL)
 
 
 def session_opener():
-    session = Session(bind=engine)
+    session = Session(bind=database_engine)
     try:
         yield session
     finally:
@@ -286,7 +289,7 @@ def session_opener():
 
 
 def verify(plain_password, hashed_password):
-    return password_context.verify(plain_password, hashed_password)
+    return pwd_context.verify(plain_password, hashed_password)
 
 
 def check_user_password_is_correct(user_db, username, password):
@@ -337,7 +340,7 @@ class UserAuthSchema(BaseModel):
 @app.post("/api/v1/users/register")
 def create_user(user: UserAuthSchema, user_db: Session = Depends(session_opener)):
     """create user"""
-    hashed_password = password_context.hash(user.password)
+    hashed_password = pwd_context.hash(user.password)
     new_user = User(username=user.username, hashed_password=hashed_password)
     user_db.add(new_user)
     user_db.commit()
