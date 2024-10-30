@@ -14,7 +14,6 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from pydantic import BaseModel, Field, AnyHttpUrl
 from sqlalchemy import (Column, ForeignKey, Integer, String, Table, Text,
                         create_engine)
 from sqlalchemy.ext.declarative import declarative_base
@@ -23,7 +22,7 @@ from sqlalchemy.orm import relationship, sessionmaker
 from src.auth.schemas import UserAuthSchema
 from src.news.schemas import NewsSumaryRequestSchema, PromptRequest
 
-Base = declarative_base()
+from src.database import Base, database_engine, SessionLocal, DatabaseSession
 
 USER_NEWS_ASSOCIATION_TABLE_NAME = "user_news_upvotes"
 USERS_TABLE_NAME = "users"
@@ -38,7 +37,6 @@ user_news_association_table = Table(
     ),
 )
 
-# from pydantic import BaseModel
 
 MAX_USERNAME_LENGTH = 50
 MAX_PASSWORD_HASH_LENGTH = 200
@@ -69,13 +67,6 @@ class NewsArticle(Base):
     )
 
 
-DATABASE_URL = "sqlite:///news_database.db"
-database_engine = create_engine(DATABASE_URL, echo=True)
-
-Base.metadata.create_all(database_engine)
-
-DatabaseSession = sessionmaker(bind=database_engine)
-
 SENTRY_DSN = "https://4001ffe917ccb261aa0e0c34026dc343@o4505702629834752.ingest.us.sentry.io/4507694792704000"
 SENTRY_TRACES_SAMPLE_RATE = 1.0
 SENTRY_PROFILES_SAMPLE_RATE = 1.0
@@ -88,7 +79,6 @@ sentry_sdk.init(
 
 app = FastAPI()
 background_scheduler = BackgroundScheduler()
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=database_engine)
 
 ALLOWED_ORIGIN = "http://localhost:8080"
 
