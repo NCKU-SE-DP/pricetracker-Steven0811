@@ -20,6 +20,9 @@ from sqlalchemy import (Column, ForeignKey, Integer, String, Table, Text,
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
+from src.auth.schemas import UserAuthSchema
+from src.news.schemas import NewsSumaryRequestSchema, PromptRequest
+
 Base = declarative_base()
 
 USER_NEWS_ASSOCIATION_TABLE_NAME = "user_news_upvotes"
@@ -334,9 +337,7 @@ async def login_for_access_token(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-class UserAuthSchema(BaseModel):
-    username: str
-    password: str
+
 @app.post("/api/v1/users/register")
 def create_user(user: UserAuthSchema, user_db: Session = Depends(session_opener)):
     """create user"""
@@ -418,8 +419,7 @@ def read_user_news(
         )
     return user_news_data
 
-class PromptRequest(BaseModel):
-    prompt: str
+
 
 @app.post("/api/v1/news/search_news")
 async def search_news(request: PromptRequest):
@@ -469,8 +469,7 @@ async def search_news(request: PromptRequest):
             print(e)
     return sorted(news_list, key=lambda x: x["time"], reverse=True)
 
-class NewsSumaryRequestSchema(BaseModel):
-    content: str
+
 
 @app.post("/api/v1/news/news_summary")
 async def news_summary(
