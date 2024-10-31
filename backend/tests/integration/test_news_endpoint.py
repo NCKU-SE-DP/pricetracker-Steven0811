@@ -5,7 +5,9 @@ from sqlalchemy.orm import sessionmaker
 import json
 from jose import jwt
 from src.main import app
-from src.main import Base, NewsArticle, User, session_opener, user_news_association_table
+from src.database import Base
+from src.models import User, NewsArticle
+from src.main import session_opener
 from src.main import NewsSumaryRequestSchema, PromptRequest
 from src.main import pwd_context
 from unittest.mock import Mock
