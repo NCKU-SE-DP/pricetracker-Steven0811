@@ -19,15 +19,12 @@ from src.news.schemas import NewsSumaryRequestSchema, PromptRequest
 
 from src.database import database_engine, SessionLocal, DatabaseSession
 from src.models import user_news_association_table, User, NewsArticle
-
-SENTRY_DSN = "https://4001ffe917ccb261aa0e0c34026dc343@o4505702629834752.ingest.us.sentry.io/4507694792704000"
-SENTRY_TRACES_SAMPLE_RATE = 1.0
-SENTRY_PROFILES_SAMPLE_RATE = 1.0
+from src.config import Sentry
 
 sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
-    profiles_sample_rate=SENTRY_PROFILES_SAMPLE_RATE,
+    dsn = Sentry.dsn,
+    traces_sample_rate = Sentry.trece_sample_rate,
+    profiles_sample_rate = Sentry.profiles_sample_rate,
 )
 
 app = FastAPI()
