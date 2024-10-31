@@ -22,9 +22,9 @@ from src.models import user_news_association_table, User, NewsArticle
 from src.config import Sentry
 
 sentry_sdk.init(
-    dsn = Sentry.dsn,
-    traces_sample_rate = Sentry.trece_sample_rate,
-    profiles_sample_rate = Sentry.profiles_sample_rate,
+    dsn = Sentry.DSN,
+    traces_sample_rate = Sentry.TRACE_SAMPLE_RATE,
+    profiles_sample_rate = Sentry.PROFILES_SAMPLE_RATE,
 )
 
 app = FastAPI()
