@@ -19,7 +19,7 @@ from src.news.schemas import NewsSumaryRequestSchema, PromptRequest
 
 from src.database import database_engine, SessionLocal, DatabaseSession
 from src.models import user_news_association_table, User, NewsArticle
-from src.config import Sentry
+from src.config import Sentry, ALLOWED_ORIGIN
 
 sentry_sdk.init(
     dsn = Sentry.DSN,
@@ -29,8 +29,6 @@ sentry_sdk.init(
 
 app = FastAPI()
 background_scheduler = BackgroundScheduler()
-
-ALLOWED_ORIGIN = "http://localhost:8080"
 
 app.add_middleware(
     CORSMiddleware,  # noqa
