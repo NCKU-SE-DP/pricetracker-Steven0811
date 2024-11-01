@@ -21,6 +21,8 @@ from src.database import database_engine, SessionLocal, DatabaseSession
 from src.models import user_news_association_table, User, NewsArticle
 from src.config import Sentry, ALLOWED_ORIGIN
 
+from src.users.router import router as users_router
+
 sentry_sdk.init(
     dsn = Sentry.DSN,
     traces_sample_rate = Sentry.TRACE_SAMPLE_RATE,
@@ -260,34 +262,7 @@ def create_access_token(user_data, expires_delta=None):
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm="HS256")
     return encoded_jwt
 
-
-@app.post("/api/v1/users/login")
-async def login_for_access_token(
-        form_data: OAuth2PasswordRequestForm = Depends(), user_db: Session = Depends(session_opener)
-):
-    """login"""
-    user = check_user_password_is_correct(user_db, form_data.username, form_data.password)
-    ACCESS_TOKEN_EXPIRE_MINUTES = 30
-    access_token = create_access_token(
-        data={"sub": str(user.username)}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
-@app.post("/api/v1/users/register")
-def create_user(user: UserAuthSchema, user_db: Session = Depends(session_opener)):
-    """create user"""
-    hashed_password = pwd_context.hash(user.password)
-    new_user = User(username=user.username, hashed_password=hashed_password)
-    user_db.add(new_user)
-    user_db.commit()
-    user_db.refresh(new_user)
-    return new_user
-
-
-@app.get("/api/v1/users/me")
-def read_users_me(user=Depends(authenticate_user_token)):
-    return {"username": user.username}
+app.include_router(users_router)
 
 ID_COUNTER_START = 1000000
 _id_counter = itertools.count(start=ID_COUNTER_START)
