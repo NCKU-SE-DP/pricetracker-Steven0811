@@ -5,13 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, sessionmaker
 import requests
 from fastapi import APIRouter, HTTPException, Query, Depends, status, FastAPI
-import os
 from datetime import datetime, timedelta
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from src.database import database_engine, SessionLocal, DatabaseSession
 from src.models import user_news_association_table, User, NewsArticle
-from src.config import Sentry, ALLOWED_ORIGIN
+from src.config import Sentry, Basic
 
 from src.users.router import router as users_router
 from src.news.router import router as news_router
@@ -30,7 +29,7 @@ background_scheduler = BackgroundScheduler()
 
 app.add_middleware(
     CORSMiddleware,  # noqa
-    allow_origins=[ALLOWED_ORIGIN],
+    allow_origins=[Basic.ALLOWED_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,9 +50,9 @@ def start_scheduler():
 def shutdown_scheduler():
     background_scheduler.shutdown()
 
-app.include_router(users_router, prefix="/api/v1")
-app.include_router(news_router, prefix="/api/v1")
-app.include_router(prices_router, prefix="/api/v1")
+app.include_router(users_router, prefix=Basic.API_PREFIX)
+app.include_router(news_router, prefix=Basic.API_PREFIX)
+app.include_router(prices_router, prefix=Basic.API_PREFIX)
 
 import os
 from openai import OpenAI
