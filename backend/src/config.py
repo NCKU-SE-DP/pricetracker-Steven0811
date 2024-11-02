@@ -18,3 +18,4 @@ class OpenAI():
 class Basic():
     ALLOWED_ORIGIN = "http://localhost:8080"
     API_PREFIX = "/api/v1"
+    SCHEDULER_INTERVAL_MINUTES = 100
