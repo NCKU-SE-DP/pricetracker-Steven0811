@@ -2,27 +2,21 @@ import json
 import sentry_sdk
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi.middleware.cors import CORSMiddleware
-import itertools
-from sqlalchemy import delete, insert, select
 from sqlalchemy.orm import Session, sessionmaker
-from typing import List, Optional
 import requests
 from fastapi import APIRouter, HTTPException, Query, Depends, status, FastAPI
 import os
 from datetime import datetime, timedelta
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
-from passlib.context import CryptContext
-
-from src.auth.schemas import UserAuthSchema
-from src.news.schemas import NewsSumaryRequestSchema, PromptRequest
-
 from src.database import database_engine, SessionLocal, DatabaseSession
 from src.models import user_news_association_table, User, NewsArticle
 from src.config import Sentry, ALLOWED_ORIGIN
 
 from src.users.router import router as users_router
 from src.news.router import router as news_router
+from src.prices.router import router as prices_router
+
 from src.auth.service import pwd_context
 
 sentry_sdk.init(
@@ -41,6 +35,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+def start_scheduler():
+    news_db = SessionLocal()
+    if news_db.query(NewsArticle).count() == 0:
+        # should change into simple factory pattern
+        get_and_summarize_news()
+    news_db.close()
+    SCHEDULER_INTERVAL_MINUTES = 100
+    background_scheduler.add_job(get_and_summarize_news, "interval", minutes=SCHEDULER_INTERVAL_MINUTES)
+    background_scheduler.start()
+
+@app.on_event("shutdown")
+def shutdown_scheduler():
+    background_scheduler.shutdown()
+
+app.include_router(users_router, prefix="/api/v1")
+app.include_router(news_router, prefix="/api/v1")
+app.include_router(prices_router, prefix="/api/v1")
 
 import os
 from openai import OpenAI
@@ -166,23 +179,6 @@ def get_and_summarize_news(is_initial=False):
             detailed_news["reason"] = summary_result["原因"]
             add_news_to_db(detailed_news)
 
-
-@app.on_event("startup")
-def start_scheduler():
-    news_db = SessionLocal()
-    if news_db.query(NewsArticle).count() == 0:
-        # should change into simple factory pattern
-        get_and_summarize_news()
-    news_db.close()
-    SCHEDULER_INTERVAL_MINUTES = 100
-    background_scheduler.add_job(get_and_summarize_news, "interval", minutes=SCHEDULER_INTERVAL_MINUTES)
-    background_scheduler.start()
-
-@app.on_event("shutdown")
-def shutdown_scheduler():
-    background_scheduler.shutdown()
-
-
 TOKER_URL = "/api/v1/users/login"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=TOKER_URL)
 
@@ -229,10 +225,6 @@ def create_access_token(user_data, expires_delta=None):
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm="HS256")
     return encoded_jwt
 
-app.include_router(users_router)
-app.include_router(news_router)
-
-
 def get_article_upvote_details(article_id, uid, news_db):
     upvote_count = (
         news_db.query(user_news_association_table)
@@ -252,13 +244,3 @@ def get_article_upvote_details(article_id, uid, news_db):
 
 def news_exists(article_id, news_db: Session):
     return news_db.query(NewsArticle).filter_by(id=article_id).first() is not None
-
-
-@app.get("/api/v1/prices/necessities-price")
-def get_necessities_prices(
-        category_name=Query(None), commodity_name=Query(None)
-):
-    return requests.get(
-        "https://opendata.ey.gov.tw/api/ConsumerProtection/NecessitiesPrice",
-        params={"CategoryName": category_name, "Name": commodity_name},
-    ).json()
