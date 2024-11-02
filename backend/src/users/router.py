@@ -16,7 +16,7 @@ router = APIRouter(
     tags=["users"],
     responses={404: {"description": "Not found"}},
 )
-@router.post("/api/v1/users/login")
+@router.post("/login")
 async def login_for_access_token(
         form_data: OAuth2PasswordRequestForm = Depends(), user_db: Session = Depends(session_opener)
 ):
@@ -28,7 +28,7 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.post("/api/v1/users/register")
+@router.post("/register")
 def create_user(user: UserAuthSchema, user_db: Session = Depends(session_opener)):
     """create user"""
     hashed_password = pwd_context.hash(user.password)

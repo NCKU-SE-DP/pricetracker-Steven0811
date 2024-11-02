@@ -17,7 +17,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.get("/api/v1/news/news")
+@router.get("/news")
 def read_news(news_db=Depends(session_opener)):
     """
     read new
@@ -35,9 +35,7 @@ def read_news(news_db=Depends(session_opener)):
     return formatted_news
 
 
-@router.get(
-    "/api/v1/news/user_news"
-)
+@router.get("/user_news")
 def read_user_news(
         news_db=Depends(session_opener),
         user=Depends(authenticate_user_token)
@@ -62,7 +60,7 @@ def read_user_news(
         )
     return user_news_data
 
-@router.post("/api/v1/news/search_news")
+@router.post("/search_news")
 async def search_news(request: PromptRequest):
     user_prompt = request.prompt
     news_list = []
@@ -107,7 +105,7 @@ async def search_news(request: PromptRequest):
     return sorted(news_list, key=lambda x: x["time"], reverse=True)
 
 
-@router.post("/api/v1/news/news_summary")
+@router.post("/news_summary")
 async def news_summary(
         payload: NewsSumaryRequestSchema, user=Depends(authenticate_user_token)
 ):
@@ -128,7 +126,7 @@ async def news_summary(
         response["reason"] = summary_result["原因"]
     return response
 
-@router.post("/api/v1/news/{id}/upvote")
+@router.post("/{id}/upvote")
 def upvote_article(
         article_id,
         news_db=Depends(session_opener),
