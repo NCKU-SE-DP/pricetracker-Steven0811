@@ -1,0 +1,138 @@
+from fastapi import APIRouter, Depends
+from src.models import NewsArticle
+from src.database import session_opener
+from src.news.schemas import NewsSumaryRequestSchema, PromptRequest
+from src.auth.dependencies import authenticate_user_token
+from src.news.service import get_article_upvote_details, toggle_upvote
+import requests
+from bs4 import BeautifulSoup
+import json
+from src.news.service import get_new_info
+from src.news.utils import _id_counter, generate_ai
+from src.config import OpenAI
+
+router = APIRouter(
+    prefix="/news",
+    tags=["news"],
+    responses={404: {"description": "Not found"}},
+)
+
+@router.get("/api/v1/news/news")
+def read_news(news_db=Depends(session_opener)):
+    """
+    read new
+
+    :param db:
+    :return:
+    """
+    news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
+    formatted_news = []
+    for article in news:
+        upvote_count, is_upvoted = get_article_upvote_details(article.id, None, news_db)
+        formatted_news.append(
+            {**article.__dict__, "upvotes": upvote_count, "is_upvoted": is_upvoted}
+        )
+    return formatted_news
+
+
+@router.get(
+    "/api/v1/news/user_news"
+)
+def read_user_news(
+        news_db=Depends(session_opener),
+        user=Depends(authenticate_user_token)
+):
+    """
+    read user new
+
+    :param db:
+    :param u:
+    :return:
+    """
+    news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
+    user_news_data = []
+    for article in news:
+        upvotes, upvoted = get_article_upvote_details(article.id, user.id, news_db)
+        user_news_data.append(
+            {
+                **article.__dict__,
+                "upvotes": upvotes,
+                "is_upvoted": upvoted,
+            }
+        )
+    return user_news_data
+
+@router.post("/api/v1/news/search_news")
+async def search_news(request: PromptRequest):
+    user_prompt = request.prompt
+    news_list = []
+    search_request_payload = [
+        {
+            "role": "system",
+            "content": "你是一個關鍵字提取機器人，用戶將會輸入一段文字，表示其希望看見的新聞內容，請提取出用戶希望看見的關鍵字，請截取最重要的關鍵字即可，避免出現「新聞」、「資訊」等混淆搜尋引擎的字詞。(僅須回答關鍵字，若有多個關鍵字，請以空格分隔)",
+        },
+        {"role": "user", "content": f"{user_prompt}"},
+    ]
+
+    search_ai = generate_ai(search_request_payload)
+    keywords = search_ai.choices[OpenAI.FIRST_CHOICE_INDEX].message.content
+    # should change into simple factory pattern
+    news_items = get_new_info(keywords, is_initial=False)
+    for news in news_items:
+        try:
+            response = requests.get(news["titleLink"])
+            soup = BeautifulSoup(response.text, "html.parser")
+            # 標題
+            article_title = soup.find("h1", class_="article-content__title").text
+            time = soup.find("time", class_="article-content__time").text
+            # 定位到包含文章内容的 <section>
+            content_section = soup.find("section", class_="article-content__editor")
+
+            article_paragraphs = [
+                paragraph.text
+                for paragraph in content_section.find_all("p")
+                if paragraph.text.strip() != "" and "▪" not in paragraph.text
+            ]
+            detailed_news = {
+                "url": news["titleLink"],
+                "title": article_title,
+                "time": time,
+                "content": article_paragraphs,
+            }
+            detailed_news["content"] = " ".join(detailed_news["content"])
+            detailed_news["id"] = next(_id_counter)
+            news_list.append(detailed_news)
+        except Exception as e:
+            print(e)
+    return sorted(news_list, key=lambda x: x["time"], reverse=True)
+
+
+@router.post("/api/v1/news/news_summary")
+async def news_summary(
+        payload: NewsSumaryRequestSchema, user=Depends(authenticate_user_token)
+):
+    response = {}
+    summary_request_payload = [
+        {
+            "role": "system",
+            "content": "你是一個新聞摘要生成機器人，請統整新聞中提及的影響及主要原因 (影響、原因各50個字，請以json格式回答 {'影響': '...', '原因': '...'})",
+        },
+        {"role": "user", "content": f"{payload.content}"},
+    ]
+
+    summarize_ai = generate_ai(summary_request_payload)
+    summary_result = summarize_ai.choices[OpenAI.FIRST_CHOICE_INDEX].message.content
+    if summary_result:
+        summary_result = json.loads(summary_result)
+        response["summary"] = summary_result["影響"]
+        response["reason"] = summary_result["原因"]
+    return response
+
+@router.post("/api/v1/news/{id}/upvote")
+def upvote_article(
+        article_id,
+        news_db=Depends(session_opener),
+        user=Depends(authenticate_user_token),
+):
+    message = toggle_upvote(article_id, user.id, news_db)
+    return {"message": message}
