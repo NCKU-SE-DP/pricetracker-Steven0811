@@ -34,8 +34,7 @@ def start_scheduler():
         # should change into simple factory pattern
         get_and_summarize_news()
     news_db.close()
-    SCHEDULER_INTERVAL_MINUTES = 100
-    background_scheduler.add_job(get_and_summarize_news, "interval", minutes=SCHEDULER_INTERVAL_MINUTES)
+    background_scheduler.add_job(get_and_summarize_news, "interval", minutes=Basic.SCHEDULER_INTERVAL_MINUTES)
     background_scheduler.start()
 
 @app.on_event("shutdown")
