@@ -7,9 +7,9 @@ from jose import jwt
 from src.main import app
 from src.database import Base
 from src.models import User, NewsArticle
-from src.main import session_opener
-from src.main import NewsSumaryRequestSchema, PromptRequest
-from src.main import pwd_context
+from src.database import session_opener
+from src.news.schemas import NewsSumaryRequestSchema
+from src.auth.service import pwd_context
 from unittest.mock import Mock
 
 
