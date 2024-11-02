@@ -15,4 +15,6 @@ class OpenAI():
     AI_MODEL = "gpt-3.5-turbo"
     ID_COUNTER_START = 1000000
 
-ALLOWED_ORIGIN = "http://localhost:8080"
+class Basic():
+    ALLOWED_ORIGIN = "http://localhost:8080"
+    API_PREFIX = "/api/v1"
