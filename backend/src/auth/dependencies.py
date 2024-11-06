@@ -11,5 +11,12 @@ def authenticate_user_token(
     token = Depends(oauth2_scheme),
     user_db = Depends(session_opener)
 ):
+    """
+    Authenticate a user based on the provided JWT token.
+
+    :param token: The JWT token provided by the user, injected by FastAPI.
+    :param user_db: The database session dependency, injected by FastAPI.
+    :return: The authenticated user object if the token is valid, None otherwise.
+    """
     payload = jwt.decode(token, Auth.JWT_SECRET_KEY, algorithms=["HS256"])
     return user_db.query(User).filter(User.username == payload.get("sub")).first()

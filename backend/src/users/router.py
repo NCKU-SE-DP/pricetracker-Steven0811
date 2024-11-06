@@ -20,7 +20,13 @@ router = APIRouter(
 async def login_for_access_token(
         form_data: OAuth2PasswordRequestForm = Depends(), user_db: Session = Depends(session_opener)
 ):
-    """login"""
+    """
+    Authenticate the user and return an access token.
+
+    :param form_data: The form data containing the user's login credentials,
+                      injected by FastAPI.
+    :return: A dictionary containing the access token and token type.
+    """
     user = check_user_password_is_correct(user_db, form_data.username, form_data.password)
     access_token = create_access_token(
         data={"sub": str(user.username)}, expires_delta=timedelta(minutes=Auth.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -30,7 +36,13 @@ async def login_for_access_token(
 
 @router.post("/register")
 def create_user(user: UserAuthSchema, user_db: Session = Depends(session_opener)):
-    """create user"""
+    """
+    Create a new user in the database.
+    
+    :param user: The user details for creating a new user.
+    :param db: The database session dependency, injected by FastAPI.
+    :return: The created user object.
+    """
     hashed_password = pwd_context.hash(user.password)
     new_user = User(username=user.username, hashed_password=hashed_password)
     user_db.add(new_user)

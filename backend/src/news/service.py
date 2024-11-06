@@ -7,19 +7,28 @@ from bs4 import BeautifulSoup
 import json
 from sqlalchemy import delete, insert, select
 from src.news.constants import UDN_API_URL
+from src.config import AI
 
 def add_news_to_db(news_data):
     """
-    add new to db
-    :param news_data: news info
-    :return:
+    Add a news article to the database.
+
+    :param news_data: A dictionary containing the news article data. Expected keys are:
+                      - url: The URL of the news article.
+                      - title: The title of the news article.
+                      - time: The publication time of the news article.
+                      - content: The content of the news article.
+                      - summary: The summary of the news article.
+                      - reason: The reason or context of the news article.
+    :param session: The database session dependency, injected by FastAPI.
+    :return: None
     """
     session = Session()
     session.add(NewsArticle(
         url=news_data["url"],
         title=news_data["title"],
         time=news_data["time"],
-        content=" ".join(news_data["content"]),  # 將內容list轉換為字串
+        content=" ".join(news_data["content"]),
         summary=news_data["summary"],
         reason=news_data["reason"],
     ))
@@ -28,14 +37,14 @@ def add_news_to_db(news_data):
 
 def get_new_info(search_term, is_initial=False):
     """
-    get new
+    Retrieve news articles based on a search term.
 
-    :param search_term:
-    :param is_initial:
-    :return:
+    :param search_term: The term to search for in news articles.
+    :param is_initial: A boolean flag indicating whether to fetch multiple pages
+                       of news data.
+    :return: A list of news articles matching the search term.
     """
     all_news_data = []
-    # iterate pages to get more news data, not actually get all news data
     if is_initial:
         news_lists_by_page = []
         START_PAGE = 1
@@ -66,10 +75,11 @@ def get_new_info(search_term, is_initial=False):
 
 def get_and_summarize_news(is_initial=False):
     """
-    get new info
+    Retrieve and summarize news articles.
 
-    :param is_initial:
-    :return:
+    :param is_initial: A boolean flag indicating whether to fetch multiple pages
+                       of news data for the initial run.
+    :return: None
     """
     news_data = get_new_info("價格", is_initial=is_initial)
     for news in news_data:
@@ -85,15 +95,12 @@ def get_and_summarize_news(is_initial=False):
             model = "gpt-3.5-turbo",
             messages = evaluation_request_payload,
         )
-        FIRST_CHOICE_INDEX = 0
-        relevance = evaluate_ai.choices[FIRST_CHOICE_INDEX].message.content
+        relevance = evaluate_ai.choices[AI.FIRST_CHOICE_INDEX].message.content
         if relevance == "high":
             response = requests.get(news["titleLink"])
             soup = BeautifulSoup(response.text, "html.parser")
-            # 標題
             article_title = soup.find("h1", class_="article-content__title").text
             time = soup.find("time", class_="article-content__time").text
-            # 定位到包含文章内容的 <section>
             content_section = soup.find("section", class_="article-content__editor")
 
             article_aragraphs = [
@@ -119,13 +126,22 @@ def get_and_summarize_news(is_initial=False):
                 model="gpt-3.5-turbo",
                 messages=summary_request_payload,
             )
-            summary_result = json.load(summarize_ai.choices[FIRST_CHOICE_INDEX].message.content)
-            # result = json.loads(result)
+            summary_result = json.load(summarize_ai.choices[AI.FIRST_CHOICE_INDEX].message.content)
             detailed_news["summary"] = summary_result["影響"]
             detailed_news["reason"] = summary_result["原因"]
             add_news_to_db(detailed_news)
 
 def get_article_upvote_details(article_id, uid, news_db):
+    """
+    Retrieve the upvote details for a specific news article.
+
+    :param article_id: The ID of the news article.
+    :param user_id: The ID of the user (optional). If provided, the function
+                    will check if this user has upvoted the article.
+    :param db: The database session dependency.
+    :return: A tuple containing the number of upvotes and a boolean indicating
+             whether the user has upvoted the article.
+    """
     upvote_count = (
         news_db.query(user_news_association_table)
         .filter_by(news_articles_id=article_id)
@@ -145,6 +161,14 @@ def news_exists(article_id, news_db: Session):
     return news_db.query(NewsArticle).filter_by(id=article_id).first() is not None
 
 def toggle_upvote(article_id, user_id, news_db):
+    """
+    Toggle the upvote status of a news article for a specific user.
+
+    :param article_id: The ID of the news article to be upvoted or un-upvoted.
+    :param user_id: The ID of the user toggling the upvote.
+    :param db: The database session dependency.
+    :return: A message indicating whether the article was upvoted or un-upvoted.
+    """
     existing_upvote = news_db.execute(
         select(user_news_association_table).where(
             user_news_association_table.c.news_articles_id == article_id,

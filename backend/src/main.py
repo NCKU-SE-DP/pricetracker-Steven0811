@@ -20,7 +20,7 @@ app = FastAPI()
 background_scheduler = BackgroundScheduler()
 
 app.add_middleware(
-    CORSMiddleware,  # noqa
+    CORSMiddleware,
     allow_origins=[Basic.ALLOWED_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
@@ -31,7 +31,6 @@ app.add_middleware(
 def start_scheduler():
     news_db = SessionLocal()
     if news_db.query(NewsArticle).count() == 0:
-        # should change into simple factory pattern
         get_and_summarize_news()
     news_db.close()
     background_scheduler.add_job(get_and_summarize_news, "interval", minutes=Basic.SCHEDULER_INTERVAL_MINUTES)

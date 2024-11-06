@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 import json
 from src.news.service import get_new_info
 from src.news.utils import _id_counter, generate_ai
-from src.config import OpenAI
+from src.config import AI
 
 router = APIRouter(
     prefix="/news",
@@ -20,10 +20,11 @@ router = APIRouter(
 @router.get("/news")
 def read_news(news_db=Depends(session_opener)):
     """
-    read new
+    Retrieve all news articles, ordered by time in descending order.
 
-    :param db:
-    :return:
+    :param news_db: The database session dependency, injected by FastAPI.
+    :return: A list of formatted news articles, each including the number of
+             upvotes and whether the current user has upvoted the article.
     """
     news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
     formatted_news = []
@@ -41,11 +42,12 @@ def read_user_news(
         user=Depends(authenticate_user_token)
 ):
     """
-    read user new
+    Retrieve news articles related to the authenticated user, ordered by time in descending order.
 
-    :param db:
-    :param u:
-    :return:
+    :param news_db: The database session dependency, injected by FastAPI.
+    :param user: The authenticated user dependency, injected by FastAPI.
+    :return: A list of formatted news articles, each including the number of
+             upvotes and whether the authenticated user has upvoted the article.
     """
     news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
     user_news_data = []
@@ -62,6 +64,12 @@ def read_user_news(
 
 @router.post("/search_news")
 async def search_news(request: PromptRequest):
+    """
+    Search for news articles based on user input and extract relevant keywords.
+
+    :param request: The request body containing the user prompt.
+    :return: A list of news articles matching the extracted keywords.
+    """
     user_prompt = request.prompt
     news_list = []
     search_request_payload = [
@@ -73,17 +81,14 @@ async def search_news(request: PromptRequest):
     ]
 
     search_ai = generate_ai(search_request_payload)
-    keywords = search_ai.choices[OpenAI.FIRST_CHOICE_INDEX].message.content
-    # should change into simple factory pattern
+    keywords = search_ai.choices[AI.FIRST_CHOICE_INDEX].message.content
     news_items = get_new_info(keywords, is_initial=False)
     for news in news_items:
         try:
             response = requests.get(news["titleLink"])
             soup = BeautifulSoup(response.text, "html.parser")
-            # 標題
             article_title = soup.find("h1", class_="article-content__title").text
             time = soup.find("time", class_="article-content__time").text
-            # 定位到包含文章内容的 <section>
             content_section = soup.find("section", class_="article-content__editor")
 
             article_paragraphs = [
@@ -109,6 +114,14 @@ async def search_news(request: PromptRequest):
 async def news_summary(
         payload: NewsSumaryRequestSchema, user=Depends(authenticate_user_token)
 ):
+    """
+    Generate a summary of the news article content provided by the user.
+
+    :param payload: The request body containing the content of the news article.
+    :param user: The authenticated user dependency, injected by FastAPI.
+    :return: A dictionary containing the summary and the main reasons mentioned
+             in the article.
+    """
     response = {}
     summary_request_payload = [
         {
@@ -119,7 +132,7 @@ async def news_summary(
     ]
 
     summarize_ai = generate_ai(summary_request_payload)
-    summary_result = summarize_ai.choices[OpenAI.FIRST_CHOICE_INDEX].message.content
+    summary_result = summarize_ai.choices[AI.FIRST_CHOICE_INDEX].message.content
     if summary_result:
         summary_result = json.loads(summary_result)
         response["summary"] = summary_result["影響"]
@@ -132,5 +145,14 @@ def upvote_article(
         news_db=Depends(session_opener),
         user=Depends(authenticate_user_token),
 ):
+    """
+    Toggle the upvote status of a news article for the authenticated user.
+
+    :param article_id: The ID of the news article to be upvoted or un-upvoted.
+    :param news_db: The database session dependency, injected by FastAPI.
+    :param user: The authenticated user dependency, injected by FastAPI.
+    :return: A dictionary containing a message indicating the result of the
+             upvote action.
+    """
     message = toggle_upvote(article_id, user.id, news_db)
     return {"message": message}
