@@ -28,7 +28,7 @@ def check_user_password_is_correct(user_db, username, password):
         return False
     return user
 
-def create_access_token(user_data, expires_delta=None):
+def create_access_token(data, expires_delta=None):
     """
     Create a JWT access token.
     
@@ -37,7 +37,7 @@ def create_access_token(user_data, expires_delta=None):
                           If not provided, the token will expire in 15 minutes.
     :return: A JWT access token as a string.
     """
-    to_encode = user_data.copy()
+    to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
