@@ -111,7 +111,7 @@ def test_read_user_news(test_user, test_token, test_articles):
     assert json_response[1]["is_upvoted"] is False
 
 def mock_openai(mocker, return_content):
-    mock_openai_client = mocker.patch('src.news.service.OpenAI')
+    mock_openai_client = mocker.patch('src.news.utils.OpenAI')
 
     mock_message = Mock()
     mock_message.content = return_content
