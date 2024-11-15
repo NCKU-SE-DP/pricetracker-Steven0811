@@ -129,7 +129,7 @@ def mock_openai(mocker, return_content):
 def test_search_news(mocker):
     mock_openai(mocker, "keywords")
 
-    mock_get_new_info = mocker.patch("src.news.router.get_new_info", return_value=[
+    mock_get_new_info = mocker.patch("src.news.router.NewsService.get_new_info", return_value=[
         {"titleLink": "http://example.com/news1"}
     ])
 
