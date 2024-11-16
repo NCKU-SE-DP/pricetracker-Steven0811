@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from src.database import SessionLocal
 from src.models import  NewsArticle
 from src.config import Sentry, Basic
-from src.users.router import router as users_router
+from src.users.router import UsersRouter
 from src.news.router import NewsRouter
 from src.prices.router import router as prices_router
 from src.news.service import NewsService
@@ -27,13 +27,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+news_service = NewsService()
 @app.on_event("startup")
 def start_scheduler():
     news_db = SessionLocal()
     if news_db.query(NewsArticle).count() == 0:
-        NewsService.get_and_summarize_news()
+        news_service.get_and_summarize_news()
     news_db.close()
-    background_scheduler.add_job(NewsService.get_and_summarize_news, "interval", minutes=Basic.SCHEDULER_INTERVAL_MINUTES)
+    background_scheduler.add_job(news_service.get_and_summarize_news, "interval", minutes=Basic.SCHEDULER_INTERVAL_MINUTES)
     background_scheduler.start()
 
 @app.on_event("shutdown")
@@ -41,6 +42,7 @@ def shutdown_scheduler():
     background_scheduler.shutdown()
 
 news_router = NewsRouter().router
+users_router = UsersRouter().router
 
 app.include_router(users_router, prefix=Basic.API_PREFIX)
 app.include_router(news_router, prefix=Basic.API_PREFIX)
