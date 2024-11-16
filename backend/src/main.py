@@ -7,7 +7,7 @@ from src.models import  NewsArticle
 from src.config import Sentry, Basic
 from src.users.router import UsersRouter
 from src.news.router import NewsRouter
-from src.prices.router import router as prices_router
+from src.prices.router import PricesRouter
 from src.news.service import NewsService
 
 sentry_sdk.init(
@@ -43,6 +43,7 @@ def shutdown_scheduler():
 
 news_router = NewsRouter().router
 users_router = UsersRouter().router
+prices_router = PricesRouter().router
 
 app.include_router(users_router, prefix=Basic.API_PREFIX)
 app.include_router(news_router, prefix=Basic.API_PREFIX)
