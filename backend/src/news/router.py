@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from src.models import NewsArticle
 from src.database import session_opener
 from src.news.schemas import NewsSumaryRequestSchema, PromptRequest
-from src.auth.dependencies import authenticate_user_token
+from src.auth.dependencies import AuthDependency
 from src.news.service import NewsService
 import requests
 from bs4 import BeautifulSoup
@@ -10,7 +10,7 @@ import json
 from src.news.utils import _id_counter, generate_ai
 from src.config import AI
 
-class NewsRouter(NewsService):
+class NewsRouter(NewsService, AuthDependency):
     def __init__(self):
         super().__init__()
         
@@ -42,7 +42,7 @@ class NewsRouter(NewsService):
         @self.router.get("/user_news")
         def read_user_news(
                 news_db=Depends(session_opener),
-                user=Depends(authenticate_user_token)
+                user=Depends(self.authenticate_user_token)
         ):
             """
             Retrieve news articles related to the authenticated user, ordered by time in descending order.
@@ -114,7 +114,7 @@ class NewsRouter(NewsService):
 
         @self.router.post("/news_summary")
         async def news_summary(
-                payload: NewsSumaryRequestSchema, user=Depends(authenticate_user_token)
+                payload: NewsSumaryRequestSchema, user=Depends(self.authenticate_user_token)
         ):
             """
             Generate a summary of the news article content provided by the user.
@@ -145,7 +145,7 @@ class NewsRouter(NewsService):
         def upvote_article(
                 id,
                 news_db=Depends(session_opener),
-                user=Depends(authenticate_user_token),
+                user=Depends(self.authenticate_user_token),
         ):
             """
             Toggle the upvote status of a news article for the authenticated user.

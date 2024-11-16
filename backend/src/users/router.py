@@ -7,10 +7,10 @@ from src.database import session_opener
 from src.auth.service import AuthService
 from src.auth.schemas import UserAuthSchema
 from fastapi import APIRouter
-from src.auth.dependencies import authenticate_user_token
+from src.auth.dependencies import AuthDependency
 from src.config import Auth
 
-class UsersRouter(AuthService):
+class UsersRouter(AuthService, AuthDependency):
     def __init__(self):
         super().__init__()
 
@@ -55,5 +55,5 @@ class UsersRouter(AuthService):
             return new_user
 
         @self.router.get("/me")
-        def read_users_me(user=Depends(authenticate_user_token)):
+        def read_users_me(user=Depends(self.authenticate_user_token)):
             return {"username": user.username}
