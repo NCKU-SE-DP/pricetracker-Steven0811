@@ -7,10 +7,10 @@ from src.news.service import NewsService
 import requests
 from bs4 import BeautifulSoup
 import json
-from src.news.utils import _id_counter, generate_ai
+from src.news.utils import NewsUtils
 from src.config import AI
 
-class NewsRouter(NewsService, AuthDependency):
+class NewsRouter(NewsService, AuthDependency, NewsUtils):
     def __init__(self):
         super().__init__()
         
@@ -83,7 +83,7 @@ class NewsRouter(NewsService, AuthDependency):
                 {"role": "user", "content": f"{user_prompt}"},
             ]
 
-            search_ai = generate_ai(search_request_payload)
+            search_ai = self.generate_ai(search_request_payload)
             keywords = search_ai.choices[AI.FIRST_CHOICE_INDEX].message.content
             news_items = self.get_new_info(keywords, is_initial=False)
             for news in news_items:
@@ -106,7 +106,7 @@ class NewsRouter(NewsService, AuthDependency):
                         "content": article_paragraphs,
                     }
                     detailed_news["content"] = " ".join(detailed_news["content"])
-                    detailed_news["id"] = next(_id_counter)
+                    detailed_news["id"] = next(self._id_counter)
                     news_list.append(detailed_news)
                 except Exception as e:
                     print(e)
@@ -133,7 +133,7 @@ class NewsRouter(NewsService, AuthDependency):
                 {"role": "user", "content": f"{payload.content}"},
             ]
 
-            summarize_ai = generate_ai(summary_request_payload)
+            summarize_ai = self.generate_ai(summary_request_payload)
             summary_result = summarize_ai.choices[AI.FIRST_CHOICE_INDEX].message.content
             if summary_result:
                 summary_result = json.loads(summary_result)
