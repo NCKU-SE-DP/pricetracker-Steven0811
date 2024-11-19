@@ -14,13 +14,13 @@ class UsersRouter(AuthService, AuthDependency):
     def __init__(self):
         super().__init__()
 
-        self.router = APIRouter(
+        self.users_router = APIRouter(
             prefix="/users",
             tags=["users"],
             responses={404: {"description": "Not found"}},
         )
         
-        @self.router.post("/login")
+        @self.users_router.post("/login")
         async def login_for_access_token(
                 form_data: OAuth2PasswordRequestForm = Depends(), user_db: Session = Depends(session_opener)
         ):
@@ -38,7 +38,7 @@ class UsersRouter(AuthService, AuthDependency):
             return {"access_token": access_token, "token_type": "bearer"}
 
 
-        @self.router.post("/register")
+        @self.users_router.post("/register")
         def create_user(user: UserAuthSchema, user_db: Session = Depends(session_opener)):
             """
             Create a new user in the database.
@@ -54,6 +54,6 @@ class UsersRouter(AuthService, AuthDependency):
             user_db.refresh(new_user)
             return new_user
 
-        @self.router.get("/me")
+        @self.users_router.get("/me")
         def read_users_me(user=Depends(self.authenticate_user_token)):
             return {"username": user.username}

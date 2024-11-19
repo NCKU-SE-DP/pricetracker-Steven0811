@@ -1,15 +1,15 @@
 from fastapi import APIRouter, Query
 import requests
 
-class PricesRouter:
+class PricesRouter():
     def __init__(self):
-        self.router = APIRouter(
+        self.prices_router = APIRouter(
             prefix="/prices",
             tags=["prices"],
             responses={404: {"description": "Not found"}},
-        )
+            )
 
-        @self.router.get("/necessities-price")
+        @self.prices_router.get("/necessities-price")
         def get_necessities_prices(
                 category_name=Query(None), commodity_name=Query(None)
         ):

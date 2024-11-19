@@ -10,6 +10,7 @@ from src.news.router import NewsRouter
 from src.prices.router import PricesRouter
 from src.news.service import NewsService
 
+
 sentry_sdk.init(
     dsn = Sentry.DSN,
     traces_sample_rate = Sentry.TRACE_SAMPLE_RATE,
@@ -41,10 +42,13 @@ def start_scheduler():
 def shutdown_scheduler():
     background_scheduler.shutdown()
 
-news_router = NewsRouter().router
-users_router = UsersRouter().router
-prices_router = PricesRouter().router
+class Router(NewsRouter, UsersRouter, PricesRouter, Basic):
+    def __init__(self):
+        NewsRouter.__init__(self)
+        UsersRouter.__init__(self)
+        PricesRouter.__init__(self)
+        Basic.__init__(self)
 
-app.include_router(users_router, prefix=Basic.API_PREFIX)
-app.include_router(news_router, prefix=Basic.API_PREFIX)
-app.include_router(prices_router, prefix=Basic.API_PREFIX)
+app.include_router(Router().users_router, prefix=Router().API_PREFIX)
+app.include_router(Router().news_router, prefix=Router().API_PREFIX)
+app.include_router(Router().prices_router, prefix=Router().API_PREFIX)

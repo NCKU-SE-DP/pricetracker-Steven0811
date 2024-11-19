@@ -14,13 +14,13 @@ class NewsRouter(NewsService, AuthDependency, NewsUtils):
     def __init__(self):
         super().__init__()
         
-        self.router = APIRouter(
+        self.news_router = APIRouter(
             prefix="/news",
             tags=["news"],
             responses={404: {"description": "Not found"}},
         )
 
-        @self.router.get("/news")
+        @self.news_router.get("/news")
         def read_news(news_db=Depends(session_opener)):
             """
             Retrieve all news articles, ordered by time in descending order.
@@ -39,7 +39,7 @@ class NewsRouter(NewsService, AuthDependency, NewsUtils):
             return formatted_news
 
 
-        @self.router.get("/user_news")
+        @self.news_router.get("/user_news")
         def read_user_news(
                 news_db=Depends(session_opener),
                 user=Depends(self.authenticate_user_token)
@@ -65,7 +65,7 @@ class NewsRouter(NewsService, AuthDependency, NewsUtils):
                 )
             return user_news_data
 
-        @self.router.post("/search_news")
+        @self.news_router.post("/search_news")
         async def search_news(request: PromptRequest):
             """
             Search for news articles based on user input and extract relevant keywords.
@@ -112,7 +112,7 @@ class NewsRouter(NewsService, AuthDependency, NewsUtils):
                     print(e)
             return sorted(news_list, key=lambda x: x["time"], reverse=True)
 
-        @self.router.post("/news_summary")
+        @self.news_router.post("/news_summary")
         async def news_summary(
                 payload: NewsSumaryRequestSchema, user=Depends(self.authenticate_user_token)
         ):
@@ -141,7 +141,7 @@ class NewsRouter(NewsService, AuthDependency, NewsUtils):
                 response["reason"] = summary_result["原因"]
             return response
 
-        @self.router.post("/{id}/upvote")
+        @self.news_router.post("/{id}/upvote")
         def upvote_article(
                 id,
                 news_db=Depends(session_opener),
