@@ -141,7 +141,7 @@ async def news_summary(
 
 @router.post("/{id}/upvote")
 def upvote_article(
-        article_id,
+        id,
         news_db=Depends(session_opener),
         user=Depends(authenticate_user_token),
 ):
@@ -154,5 +154,5 @@ def upvote_article(
     :return: A dictionary containing a message indicating the result of the
              upvote action.
     """
-    message = toggle_upvote(article_id, user.id, news_db)
+    message = toggle_upvote(id, user.id, news_db)
     return {"message": message}

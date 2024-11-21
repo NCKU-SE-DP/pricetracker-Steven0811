@@ -50,6 +50,6 @@ def create_user(user: UserAuthSchema, user_db: Session = Depends(session_opener)
     user_db.refresh(new_user)
     return new_user
 
-@router.get("/api/v1/users/me")
+@router.get("/me")
 def read_users_me(user=Depends(authenticate_user_token)):
     return {"username": user.username}
