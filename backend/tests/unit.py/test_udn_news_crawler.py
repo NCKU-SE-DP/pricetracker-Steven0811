@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import patch, MagicMock
 from requests.models import Response
 from sqlalchemy.orm import Session
-from backend.src.crawler.udn_crawler import UDNCrawler, NewsWithSummary
-from backend.src.crawler.exceptions import DomainMismatchException
+from src.crawler.udn_crawler import UDNCrawler, NewsWithSummary
+from src.crawler.exceptions import DomainMismatchException
 
 
 class TestUDNCrawler(unittest.TestCase):
@@ -94,8 +94,10 @@ class TestUDNCrawler(unittest.TestCase):
         self.assertTrue(self.scraper._is_valid_url(valid_url))
         self.assertFalse(self.scraper._is_valid_url(invalid_url))
 
-    def test_parse_invalid_domain(self):
+    @patch("src.crawler.udn_crawler.requests.get")
+    def test_parse_invalid_domain(self, mock_get):
         invalid_url = "https://example.com/news/test-news"
+        mock_get.side_effect = DomainMismatchException("Invalid domain")
         with self.assertRaises(DomainMismatchException):
             self.scraper.parse(invalid_url)
 

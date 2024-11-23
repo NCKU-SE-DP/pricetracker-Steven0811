@@ -119,17 +119,17 @@ class UDNCrawler(NewsCrawlerBase):
         article_title = soup.find("h1", class_="article-content__title").text
         time = soup.find("time", class_="article-content__time").text
         content_section = soup.find("section", class_="article-content__editor")
-        article_aragraphs = [
-                paragraph.text
-                for paragraph in content_section.find_all("p")
-                if paragraph.text.strip() != "" and "▪" not in paragraph.text
-            ]
+        content = " ".join(
+            paragraph.text
+            for paragraph in content_section.find_all("p")
+            if paragraph.text.strip() != "" and "▪" not in paragraph.text
+        )
 
         return News(
             url=url,
             title=article_title,
             time=time,
-            content=article_aragraphs,
+            content=content,
         )
 
     def save(self, news: NewsWithSummary, db: Session):
