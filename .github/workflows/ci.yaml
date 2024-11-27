@@ -6,7 +6,7 @@ on:
       - 'main'
       - 'develop'
       - 'fix/integration-test'
-      - 'refacor/crawler-oop-implementation'
+      - 'refactor/crawler-oop-implementation'
   pull_request:
     branches:
       - 'main'
