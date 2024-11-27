@@ -1,13 +1,13 @@
 from sqlalchemy.orm import Session
 from src.models import NewsArticle, user_news_association_table
-from urllib.parse import quote
-import requests
-from openai import OpenAI
-from bs4 import BeautifulSoup
 import json
 from sqlalchemy import delete, insert, select
-from src.news.constants import UDN_API_URL
 from src.config import AI
+from src.crawler.udn_crawler import UDNCrawler
+from src.news.utils import generate_ai
+from src.crawler.crawler_base import NewsWithSummary
+
+udn_crawler = UDNCrawler()
 
 def add_news_to_db(news_data):
     """
@@ -23,17 +23,7 @@ def add_news_to_db(news_data):
     :param session: The database session dependency, injected by FastAPI.
     :return: None
     """
-    session = Session()
-    session.add(NewsArticle(
-        url=news_data["url"],
-        title=news_data["title"],
-        time=news_data["time"],
-        content=" ".join(news_data["content"]),
-        summary=news_data["summary"],
-        reason=news_data["reason"],
-    ))
-    session.commit()
-    session.close()
+    udn_crawler.save(news_data)
 
 def get_new_info(search_term, is_initial=False):
     """
@@ -44,34 +34,9 @@ def get_new_info(search_term, is_initial=False):
                        of news data.
     :return: A list of news articles matching the search term.
     """
-    all_news_data = []
-    if is_initial:
-        news_lists_by_page = []
-        START_PAGE = 1
-        END_PAGE = 9
-        for page in range(START_PAGE, END_PAGE+1):
-            page_params = {
-                "page": page,
-                "id": f"search:{quote(search_term)}",
-                "channelId": 2,
-                "type": "searchword",
-            }
-            response = requests.get(UDN_API_URL, params=page_params)
-            news_lists_by_page.append(response.json()["lists"])
-
-        for news_list in news_lists_by_page:
-            all_news_data.append(news_list)
-    else:
-        initial_page_params = {
-            "page": 1,
-            "id": f"search:{quote(search_term)}",
-            "channelId": 2,
-            "type": "searchword",
-        }
-        response = requests.get(UDN_API_URL, params=initial_page_params)
-
-        all_news_data = response.json()["lists"]
-    return all_news_data
+    start_page = 1
+    end_page = 9 if is_initial else 1
+    return udn_crawler.get_headline(search_term, page=(start_page, end_page))
 
 def get_and_summarize_news(is_initial=False):
     """
@@ -91,29 +56,11 @@ def get_and_summarize_news(is_initial=False):
             },
             {"role": "user", "content": f"{news_title}"},
         ]
-        evaluate_ai = OpenAI(api_key="xxx").chat.completions.create(
-            model = "gpt-3.5-turbo",
-            messages = evaluation_request_payload,
-        )
+        evaluate_ai = generate_ai(evaluation_request_payload)
         relevance = evaluate_ai.choices[AI.FIRST_CHOICE_INDEX].message.content
         if relevance == "high":
-            response = requests.get(news["titleLink"])
-            soup = BeautifulSoup(response.text, "html.parser")
-            article_title = soup.find("h1", class_="article-content__title").text
-            time = soup.find("time", class_="article-content__time").text
-            content_section = soup.find("section", class_="article-content__editor")
-
-            article_aragraphs = [
-                paragraph.text
-                for paragraph in content_section.find_all("p")
-                if paragraph.text.strip() != "" and "▪" not in paragraph.text
-            ]
-            detailed_news =  {
-                "url": news["titleLink"],
-                "title": article_title,
-                "time": time,
-                "content": article_aragraphs,
-            }
+            detailed_news = udn_crawler.validate_and_parse(news["titleLink"])
+            
             summary_request_payload = [
                 {
                     "role": "system",
@@ -121,15 +68,13 @@ def get_and_summarize_news(is_initial=False):
                 },
                 {"role": "user", "content": " ".join(detailed_news["content"])},
             ]
-
-            summarize_ai = OpenAI(api_key="xxx").chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=summary_request_payload,
-            )
+            summarize_ai = generate_ai(summary_request_payload)
             summary_result = json.load(summarize_ai.choices[AI.FIRST_CHOICE_INDEX].message.content)
-            detailed_news["summary"] = summary_result["影響"]
-            detailed_news["reason"] = summary_result["原因"]
-            add_news_to_db(detailed_news)
+
+            summarized_news = NewsWithSummary(**detailed_news)
+            summarized_news["summary"] = summary_result["影響"]
+            summarized_news["reason"] = summary_result["原因"]
+            add_news_to_db(summarized_news)
 
 def get_article_upvote_details(article_id, uid, news_db):
     """
