@@ -6,6 +6,7 @@ from src.config import AI
 from src.crawler.udn_crawler import UDNCrawler
 from src.news.utils import generate_ai
 from src.crawler.crawler_base import NewsWithSummary
+import requests
 
 udn_crawler = UDNCrawler()
 
