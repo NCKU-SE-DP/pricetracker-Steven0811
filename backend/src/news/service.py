@@ -61,7 +61,7 @@ def get_and_summarize_news(is_initial=False):
         relevance = evaluate_ai.choices[AI.FIRST_CHOICE_INDEX].message.content
         if relevance == "high":
             detailed_news = udn_crawler.validate_and_parse(news["titleLink"])
-            
+       
             summary_request_payload = [
                 {
                     "role": "system",
@@ -76,6 +76,7 @@ def get_and_summarize_news(is_initial=False):
             summarized_news["summary"] = summary_result["影響"]
             summarized_news["reason"] = summary_result["原因"]
             add_news_to_db(summarized_news)
+
 
 def get_article_upvote_details(article_id, uid, news_db):
     """
