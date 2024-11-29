@@ -7,6 +7,7 @@ on:
       - 'develop'
       - 'fix/integration-test'
       - 'refactor/crawler-oop-implementation'
+      - 'refactor/llm_client'
   pull_request:
     branches:
       - 'main'
@@ -31,19 +32,19 @@ jobs:
           pip install -r backend/requirements.txt
           pip install pytest pytest-mock pytest-cov
 
-      # - name: Run unit tests
-      #   env:
-      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      #   run: |
-      #     cd backend
-      #     pytest tests/unit --cov=src --cov-report=xml --disable-warnings
+      - name: Run unit tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          cd backend
+          pytest tests/unit --cov=src --cov-report=xml --disable-warnings
 
       - name: Run integration tests (with mock DB)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           cd backend
-          pytest tests/ --cov=src --cov-report=xml --disable-warnings
+          pytest tests/integration --cov=src --cov-report=xml --disable-warnings
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v3
