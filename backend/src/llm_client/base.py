@@ -17,7 +17,7 @@ class MessagePassingInterfaceExample(BaseModel):
     
 
 class LLMClientBase(metaclass=abc.ABCMeta):
-    ...
+    _api_key : str
     
     @abc.abstractmethod
     def evaluate_relevance(self, keywords: str) -> str:

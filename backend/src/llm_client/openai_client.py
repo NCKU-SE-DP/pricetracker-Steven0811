@@ -1,8 +1,9 @@
 from src.llm_client.base import LLMClientBase
 
 class OpenAIClient(LLMClientBase):
-    def __init__(self):
+    def __init__(self, _api_key: str):
         super().__init__()
+        self.api_key = _api_key
 
     def extract_search_keywords(self, text: str) -> str:
         return self._generate_text(
