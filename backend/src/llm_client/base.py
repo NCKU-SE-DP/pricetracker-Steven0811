@@ -3,6 +3,9 @@ import abc
 from .exceptions import DomainMismatchException
 
 from pydantic import BaseModel, Field
+from openai import OpenAI
+
+from src.config import AI
 
 
 class MessagePassingInterfaceExample(BaseModel):
@@ -76,4 +79,10 @@ class LLMClientBase(metaclass=abc.ABCMeta):
 
         :return: A string representing the generated text response.
         """
-        return NotImplemented
+        
+        ai = OpenAI(api_key="xxx").chat.completions.create(
+            model = AI.AI_MODEL,
+            messages = message,
+        )
+
+        return ai.choices[AI.FIRST_CHOICE_INDEX].message.content
