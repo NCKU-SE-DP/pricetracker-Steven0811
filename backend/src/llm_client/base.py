@@ -20,7 +20,7 @@ class LLMClientBase(metaclass=abc.ABCMeta):
     ...
     
     @abc.abstractmethod
-    def evaluate_revelance(self, keywords: str) -> str:
+    def evaluate_relevance(self, keywords: str) -> str:
         """
         Evaluate the relevance of a given news title or content with respect to a specific topic.
 
@@ -79,7 +79,7 @@ class LLMClientBase(metaclass=abc.ABCMeta):
 
         :return: A string representing the generated text response.
         """
-        
+
         ai = OpenAI(api_key="xxx").chat.completions.create(
             model = AI.AI_MODEL,
             messages = message,
