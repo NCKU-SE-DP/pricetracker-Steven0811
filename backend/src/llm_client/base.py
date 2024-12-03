@@ -67,22 +67,30 @@ class LLMClientBase(metaclass=abc.ABCMeta):
         """
         return NotImplemented
     
-    @staticmethod
-    def _generate_text(message: list[dict[str, str]]) -> str:
+    @abc.abstractmethod
+    def _generate_ai(self, message: list[dict[str, str]]) -> OpenAI:
         """
-        Generate text based on the given message.
+        Generate an AI response based on the given message.
 
         This method takes a list of dictionaries, where each dictionary contains the role and content
-        of a message. It generates a text response based on the given messages.
+        of a message. It generates an AI response based on the given messages.
 
         :param message: A list of dictionaries containing the role and content of messages.
 
-        :return: A string representing the generated text response.
+        :return: An OpenAI object representing the generated AI response.
         """
+        return NotImplemented
+    
+    @staticmethod
+    def _generate_text(ai: OpenAI) -> str:
+        """
+        Generate text from an OpenAI object.
 
-        ai = OpenAI(api_key="xxx").chat.completions.create(
-            model = AI.AI_MODEL,
-            messages = message,
-        )
+        This method takes an OpenAI object as input and returns the generated text from the AI response.
+
+        :param ai: An OpenAI object representing the generated AI response.
+
+        :return: The generated text from the AI response.
+        """
 
         return ai.choices[AI.FIRST_CHOICE_INDEX].message.content
