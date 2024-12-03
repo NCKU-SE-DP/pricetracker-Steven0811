@@ -1,14 +1,13 @@
 from sqlalchemy.orm import Session
 from src.models import NewsArticle, user_news_association_table
-import json
 from sqlalchemy import delete, insert, select
-from src.config import AI
 from src.crawler.udn_crawler import UDNCrawler
-from src.news.utils import generate_ai
 from src.crawler.crawler_base import NewsWithSummary
+from src.llm_client.openai_client import OpenAIClient
 import requests
 
 udn_crawler = UDNCrawler()
+openai_client = OpenAIClient(_api_key = "xxx")
 
 def add_news_to_db(news_data):
     """
@@ -50,27 +49,11 @@ def get_and_summarize_news(is_initial=False):
     news_data = get_new_info("價格", is_initial=is_initial)
     for news in news_data:
         news_title = news["title"]
-        evaluation_request_payload = [
-            {
-                "role": "system",
-                "content": "你是一個關聯度評估機器人，請評估新聞標題是否與「民生用品的價格變化」相關，並給予'high'、'medium'、'low'評價。(僅需回答'high'、'medium'、'low'三個詞之一)",
-            },
-            {"role": "user", "content": f"{news_title}"},
-        ]
-        evaluate_ai = generate_ai(evaluation_request_payload)
-        relevance = evaluate_ai.choices[AI.FIRST_CHOICE_INDEX].message.content
+        relevance = openai_client.evaluate_relevance(news_title)
         if relevance == "high":
             detailed_news = udn_crawler.validate_and_parse(news["titleLink"])
             
-            summary_request_payload = [
-                {
-                    "role": "system",
-                    "content": "你是一個新聞摘要生成機器人，請統整新聞中提及的影響及主要原因 (影響、原因各50個字，請以json格式回答 {'影響': '...', '原因': '...'})",
-                },
-                {"role": "user", "content": " ".join(detailed_news["content"])},
-            ]
-            summarize_ai = generate_ai(summary_request_payload)
-            summary_result = json.load(summarize_ai.choices[AI.FIRST_CHOICE_INDEX].message.content)
+            summary_result = openai_client.generate_summary(detailed_news["content"])
 
             summarized_news = NewsWithSummary(**detailed_news)
             summarized_news["summary"] = summary_result["影響"]
