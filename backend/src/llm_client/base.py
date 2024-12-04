@@ -1,7 +1,5 @@
 import abc
 
-from .exceptions import DomainMismatchException
-
 from pydantic import BaseModel, Field
 from openai import OpenAI
 
