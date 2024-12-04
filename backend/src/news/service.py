@@ -59,7 +59,7 @@ def get_and_summarize_news(is_initial=False):
             summarized_news["summary"] = summary_result["影響"]
             summarized_news["reason"] = summary_result["原因"]
             add_news_to_db(summarized_news)
-
+            
 def get_article_upvote_details(article_id, uid, news_db):
     """
     Retrieve the upvote details for a specific news article.
