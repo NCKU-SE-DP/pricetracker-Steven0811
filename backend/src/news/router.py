@@ -3,13 +3,16 @@ from src.models import NewsArticle
 from src.database import session_opener
 from src.news.schemas import NewsSumaryRequestSchema, PromptRequest
 from src.auth.dependencies import authenticate_user_token
-from src.news.service import get_article_upvote_details, toggle_upvote
+from src.news.service import get_article_upvote_details, toggle_upvote, get_new_info
+import json
 import requests
 from bs4 import BeautifulSoup
-import json
-from src.news.service import get_new_info
-from src.news.utils import _id_counter, generate_ai
-from src.config import AI
+from src.news.utils import _id_counter
+from src.llm_client.openai_client import OpenAIClient
+from src.crawler.udn_crawler import UDNCrawler
+
+openai_client = OpenAIClient(_api_key="xxx")
+udn_crawler = UDNCrawler()
 
 router = APIRouter(
     prefix="/news",
@@ -72,16 +75,7 @@ async def search_news(request: PromptRequest):
     """
     user_prompt = request.prompt
     news_list = []
-    search_request_payload = [
-        {
-            "role": "system",
-            "content": "你是一個關鍵字提取機器人，用戶將會輸入一段文字，表示其希望看見的新聞內容，請提取出用戶希望看見的關鍵字，請截取最重要的關鍵字即可，避免出現「新聞」、「資訊」等混淆搜尋引擎的字詞。(僅須回答關鍵字，若有多個關鍵字，請以空格分隔)",
-        },
-        {"role": "user", "content": f"{user_prompt}"},
-    ]
-
-    search_ai = generate_ai(search_request_payload)
-    keywords = search_ai.choices[AI.FIRST_CHOICE_INDEX].message.content
+    keywords = openai_client.extract_search_keywords(user_prompt)
     news_items = get_new_info(keywords, is_initial=False)
     for news in news_items:
         try:
@@ -123,16 +117,7 @@ async def news_summary(
              in the article.
     """
     response = {}
-    summary_request_payload = [
-        {
-            "role": "system",
-            "content": "你是一個新聞摘要生成機器人，請統整新聞中提及的影響及主要原因 (影響、原因各50個字，請以json格式回答 {'影響': '...', '原因': '...'})",
-        },
-        {"role": "user", "content": f"{payload.content}"},
-    ]
-
-    summarize_ai = generate_ai(summary_request_payload)
-    summary_result = summarize_ai.choices[AI.FIRST_CHOICE_INDEX].message.content
+    summary_result = openai_client.generate_summary(payload.content)
     if summary_result:
         summary_result = json.loads(summary_result)
         response["summary"] = summary_result["影響"]
