@@ -3,7 +3,7 @@ import abc
 from pydantic import BaseModel, Field
 from openai import OpenAI
 
-from src.config import AI
+from src.llm_client.config import AI
 
 
 class MessagePassingInterfaceExample(BaseModel):
