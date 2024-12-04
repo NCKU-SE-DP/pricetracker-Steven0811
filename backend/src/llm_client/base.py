@@ -6,12 +6,17 @@ from openai import OpenAI
 from src.llm_client.config import AI
 
 
-class MessagePassingInterfaceExample(BaseModel):
-    key: str = Field(
-        default=...,
-        example="example",
-        description="description"
-    )
+class MessagePassingInterface(BaseModel):
+    system_content: str = Field(...)
+    user_content: str = Field(...)
+    
+    @property
+    def to_dict(self) -> list[dict[str, str]]:
+        dicts = [
+            {"role": "system", "content": f"{self.system_content}"},
+            {"role": "user", "content": f"{self.user_content}"}
+        ]
+        return dicts
     
 
 class LLMClientBase(metaclass=abc.ABCMeta):
