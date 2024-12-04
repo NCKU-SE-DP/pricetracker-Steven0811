@@ -71,7 +71,7 @@ class LLMClientBase(metaclass=abc.ABCMeta):
         return NotImplemented
     
     @abc.abstractmethod
-    def _generate_ai(self, message: list[dict[str, str]]) -> OpenAI:
+    def _generate_ai(self, message: MessagePassingInterface) -> OpenAI:
         """
         Generate an AI response based on the given message.
 
