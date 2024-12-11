@@ -103,7 +103,7 @@ async def search_news(request: PromptRequest):
         except Exception as e:
             print(e)
     return sorted(news_list, key=lambda x: x["time"], reverse=True)
-
+p
 @router.post("/news_summary")
 async def news_summary(
         payload: NewsSumaryRequestSchema, user=Depends(authenticate_user_token)
@@ -148,7 +148,7 @@ async def news_summary_custom_model(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error decoding JSON response.")
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-    
+
 @router.post("/{id}/upvote")
 def upvote_article(
         id,

@@ -9,7 +9,7 @@ on:
       - 'refactor/crawler-oop-implementation'
       - 'refactor/llm_client'
       - 'refactor/llm-client-template-methods-pattern'
-
+      
   pull_request:
     branches:
       - 'main'
@@ -48,7 +48,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           cd backend
-          pytest tests/integration --cov=src --cov-report=xml --disable-warnings
+          pytest tests/ --cov=src --cov-report=xml --disable-warnings
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v3
