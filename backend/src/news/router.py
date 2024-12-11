@@ -10,13 +10,10 @@ from bs4 import BeautifulSoup
 from src.news.utils import _id_counter
 from src.llm_client.llm_client import OpenAIClient, AnthropicAIClient
 from src.crawler.udn_crawler import UDNCrawler
-from dotenv import load_dotenv
-import os
+from src.llm_client.config import OpenAIConfig, AnthropicConfig
+from src.config import Auth
 
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../.env")
-load_dotenv(dotenv_path=env_path)
-
-openai_client = OpenAIClient(os.getenv("OPENAI_API_KEY"))
+openai_client = OpenAIClient(OpenAIConfig.api_key)
 udn_crawler = UDNCrawler()
 
 router = APIRouter(
@@ -132,20 +129,24 @@ async def news_summary(
 async def news_summary_custom_model(
         payload: NewsSumaryCustomModelSchema, user=Depends(authenticate_user_token)
 ):
-    if payload.ai_model == "openai":
-        client = OpenAIClient(os.getenv("OPENAI_API_KEY"))
-    elif payload.ai_model == "anthropic":
-        client = AnthropicAIClient(os.getenv("ANTHROPIC_API_KEY"))
+    if payload.ai_model == OpenAIConfig.model:
+        client = OpenAIClient(OpenAIConfig.api_key)
+    elif payload.ai_model == AnthropicConfig.model:
+        client = AnthropicAIClient(AnthropicConfig.api_key)
     else:
         raise ValueError("Invalid model specified.")
     
     try:
-        response = client.generate_summary(payload.content)
+        response = {}
+        summary_result = client.generate_summary(payload.content)
+        if summary_result:
+            summary_result = json.loads(summary_result)
+            response["summary"] = summary_result["影響"]
+            response["reason"] = summary_result["原因"]
         return response
     except Exception as e:
         return {"error": str(e)}
     
-
 @router.post("/{id}/upvote")
 def upvote_article(
         id,
