@@ -37,6 +37,8 @@ jobs:
       - name: Run unit tests
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          
         run: |
           cd backend
           pytest tests/crawler --cov=src --cov-report=xml --disable-warnings
@@ -46,6 +48,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
         run: |
           cd backend
           pytest tests/integration --cov=src --cov-report=xml --disable-warnings
