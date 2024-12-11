@@ -5,3 +5,7 @@ class PromptRequest(BaseModel):
 
 class NewsSumaryRequestSchema(BaseModel):
     content: str
+
+class NewsSumaryCustomModelSchema(BaseModel):
+    content: str
+    ai_model: str 

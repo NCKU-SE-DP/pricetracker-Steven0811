@@ -1,17 +1,22 @@
 from fastapi import APIRouter, Depends
 from src.models import NewsArticle
 from src.database import session_opener
-from src.news.schemas import NewsSumaryRequestSchema, PromptRequest
+from src.news.schemas import NewsSumaryRequestSchema, PromptRequest, NewsSumaryCustomModelSchema
 from src.auth.dependencies import authenticate_user_token
 from src.news.service import get_article_upvote_details, toggle_upvote, get_new_info
 import json
 import requests
 from bs4 import BeautifulSoup
 from src.news.utils import _id_counter
-from src.llm_client.openai_client import OpenAIClient
+from src.llm_client.llm_client import OpenAIClient, AnthropicAIClient
 from src.crawler.udn_crawler import UDNCrawler
+from dotenv import load_dotenv
+import os
 
-openai_client = OpenAIClient(_api_key="xxx")
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../.env")
+load_dotenv(dotenv_path=env_path)
+
+openai_client = OpenAIClient(os.getenv("OPENAI_API_KEY"))
 udn_crawler = UDNCrawler()
 
 router = APIRouter(
@@ -103,7 +108,6 @@ async def search_news(request: PromptRequest):
             print(e)
     return sorted(news_list, key=lambda x: x["time"], reverse=True)
 
-
 @router.post("/news_summary")
 async def news_summary(
         payload: NewsSumaryRequestSchema, user=Depends(authenticate_user_token)
@@ -123,6 +127,24 @@ async def news_summary(
         response["summary"] = summary_result["影響"]
         response["reason"] = summary_result["原因"]
     return response
+
+@router.post("/news_summary_custom_model")
+async def news_summary_custom_model(
+        payload: NewsSumaryCustomModelSchema, user=Depends(authenticate_user_token)
+):
+    if payload.ai_model == "openai":
+        client = OpenAIClient(os.getenv("OPENAI_API_KEY"))
+    elif payload.ai_model == "anthropic":
+        client = AnthropicAIClient(os.getenv("ANTHROPIC_API_KEY"))
+    else:
+        raise ValueError("Invalid model specified.")
+    
+    try:
+        response = client.generate_summary(payload.content)
+        return response
+    except Exception as e:
+        return {"error": str(e)}
+    
 
 @router.post("/{id}/upvote")
 def upvote_article(
