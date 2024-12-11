@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from src.models import NewsArticle
 from src.database import session_opener
 from src.news.schemas import NewsSumaryRequestSchema, PromptRequest, NewsSumaryCustomModelSchema
@@ -11,7 +11,6 @@ from src.news.utils import _id_counter
 from src.llm_client.llm_client import OpenAIClient, AnthropicAIClient
 from src.crawler.udn_crawler import UDNCrawler
 from src.llm_client.config import OpenAIConfig, AnthropicConfig
-from src.config import Auth
 
 openai_client = OpenAIClient(OpenAIConfig.api_key)
 udn_crawler = UDNCrawler()
@@ -144,8 +143,11 @@ async def news_summary_custom_model(
             response["summary"] = summary_result["影響"]
             response["reason"] = summary_result["原因"]
         return response
+    
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error decoding JSON response.")
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     
 @router.post("/{id}/upvote")
 def upvote_article(
