@@ -103,7 +103,7 @@ async def search_news(request: PromptRequest):
         except Exception as e:
             print(e)
     return sorted(news_list, key=lambda x: x["time"], reverse=True)
-p
+
 @router.post("/news_summary")
 async def news_summary(
         payload: NewsSumaryRequestSchema, user=Depends(authenticate_user_token)
