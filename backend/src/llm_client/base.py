@@ -2,7 +2,7 @@ import abc
 import aisuite as ai
 from src.llm_client.config import Prompt
 
-class ProviderInterface():
+class ChatCompletionProvider:
     def __init__(self, system_content: str, user_content: str):
         self.messages = [
             {"role": "system", "content": f"{system_content}"},
@@ -70,10 +70,11 @@ class LLMClientBase(metaclass=abc.ABCMeta):
 
 
 class LLMClientTemplate(LLMClientBase):
-    def __init__(self, _api_key: str):
+    def __init__(self, _api_key: str, chat_provider_cls = ChatCompletionProvider):
         self.client = None
         self.model = None
         self._api_key = _api_key
+        self.chat_provider_cls = chat_provider_cls
         self._initialize_client()
 
     @abc.abstractmethod
@@ -86,13 +87,16 @@ class LLMClientTemplate(LLMClientBase):
         return NotImplemented
     
     def _generate_text(self,system_content: str, user_content: str) -> None:
-        message = ProviderInterface(
-            system_content=system_content,
-            user_content=user_content
-        )
+        try:
+            chat_provider = self.chat_provider_cls(
+                system_content=system_content,
+                user_content=user_content
+            )
+            return chat_provider.chat_completion_create(self.model, self.client)
         
-        return message.chat_completion_create(self.model, self.client)
-    
+        except Exception as error:
+            raise ValueError(f"[LLMClientTemplate] Chat provider creation failed: {error}")
+        
     def evaluate_relevance(self, title: str) -> str:
         return self._generate_text(Prompt.relevance_prompt, title)
     
