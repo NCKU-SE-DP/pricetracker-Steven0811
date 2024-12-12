@@ -9,12 +9,7 @@ class Auth():
     ACCESS_TOKEN_EXPIRE_MINUTES = 30
     DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES = 15
     TOKER_URL = "/api/v1/users/login"
-
-class AI():
-    FIRST_CHOICE_INDEX = 0
-    AI_MODEL = "gpt-3.5-turbo"
-    ID_COUNTER_START = 1000000
-
+    
 class Basic():
     ALLOWED_ORIGIN = "http://localhost:8080"
     API_PREFIX = "/api/v1"
