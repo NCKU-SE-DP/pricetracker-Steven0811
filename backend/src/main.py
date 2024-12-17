@@ -1,7 +1,8 @@
 import sentry_sdk
+from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from src.database import SessionLocal
 from src.models import  NewsArticle
 from src.config import Sentry, Basic
@@ -9,6 +10,11 @@ from src.users.router import router as users_router
 from src.news.router import router as news_router
 from src.prices.router import router as prices_router
 from src.news.service import get_and_summarize_news
+from src.crawler.exceptions import DomainMismatchException
+from src.error_handler.error_handler import (HTTPExceptionHandler, 
+                                             ValueErrorHandler, 
+                                             DomainMismatchHandler,
+                                             AttributeErrorHandler)
 
 sentry_sdk.init(
     dsn = Sentry.DSN,
@@ -26,6 +32,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SentryAsgiMiddleware)
 
 @app.on_event("startup")
 def start_scheduler():
@@ -43,3 +50,14 @@ def shutdown_scheduler():
 app.include_router(users_router, prefix=Basic.API_PREFIX)
 app.include_router(news_router, prefix=Basic.API_PREFIX)
 app.include_router(prices_router, prefix=Basic.API_PREFIX)
+
+exception_handler = {HTTPException: HTTPExceptionHandler,
+                     ValueError: ValueErrorHandler,
+                     DomainMismatchException: DomainMismatchHandler,
+                     AttributeError: AttributeErrorHandler}
+
+for exception, handler in exception_handler.items():
+    @app.exception_handler(exception)
+    async def custom_exception_handler(request, exc):
+        exception_handler = handler(exc)
+        return exception_handler.catch_error(request)

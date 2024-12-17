@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 from src.models import NewsArticle
 from src.database import session_opener
-from src.news.schemas import NewsSumaryRequestSchema, PromptRequest, NewsSumaryCustomModelSchema
+from src.news.schemas import PromptRequest, NewsSumaryCustomModelSchema
 from src.auth.dependencies import authenticate_user_token
 from src.news.service import get_article_upvote_details, toggle_upvote, get_new_info
 import json
@@ -30,14 +31,19 @@ def read_news(news_db=Depends(session_opener)):
     :return: A list of formatted news articles, each including the number of
              upvotes and whether the current user has upvoted the article.
     """
-    news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
-    formatted_news = []
-    for article in news:
-        upvote_count, is_upvoted = get_article_upvote_details(article.id, None, news_db)
-        formatted_news.append(
-            {**article.__dict__, "upvotes": upvote_count, "is_upvoted": is_upvoted}
-        )
-    return formatted_news
+    try:
+        news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
+        formatted_news = []
+        for article in news:
+            upvote_count, is_upvoted = get_article_upvote_details(article.id, None, news_db)
+            formatted_news.append(
+                {**article.__dict__, "upvotes": upvote_count, "is_upvoted": is_upvoted}
+            )
+        return formatted_news
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail="Database query failed.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
 @router.get("/user_news")
@@ -53,18 +59,28 @@ def read_user_news(
     :return: A list of formatted news articles, each including the number of
              upvotes and whether the authenticated user has upvoted the article.
     """
-    news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
-    user_news_data = []
-    for article in news:
-        upvotes, upvoted = get_article_upvote_details(article.id, user.id, news_db)
-        user_news_data.append(
-            {
-                **article.__dict__,
-                "upvotes": upvotes,
-                "is_upvoted": upvoted,
-            }
-        )
-    return user_news_data
+    try:
+        news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
+        user_news_data = []
+
+        for article in news:
+            upvotes, upvoted = get_article_upvote_details(article.id, user.id, news_db)
+            user_news_data.append(
+                {
+                    **article.__dict__,
+                    "upvotes": upvotes,
+                    "is_upvoted": upvoted,
+                }
+            )
+        return user_news_data
+
+    except SQLAlchemyError as db_err:
+        raise HTTPException(status_code=500, detail="Database query failed.")
+    except AttributeError:
+        raise HTTPException(status_code=401, detail="Authentication failed. Invalid user.")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 @router.post("/search_news")
 async def search_news(request: PromptRequest):
@@ -100,54 +116,50 @@ async def search_news(request: PromptRequest):
             detailed_news["content"] = " ".join(detailed_news["content"])
             detailed_news["id"] = next(_id_counter)
             news_list.append(detailed_news)
+        except requests.RequestException as e:
+            raise HTTPException(status_code=502, detail="Failed to fetch news from external source.")
         except Exception as e:
-            print(e)
+            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
     return sorted(news_list, key=lambda x: x["time"], reverse=True)
-
-@router.post("/news_summary")
-async def news_summary(
-        payload: NewsSumaryRequestSchema, user=Depends(authenticate_user_token)
-):
-    """
-    Generate a summary of the news article content provided by the user.
-
-    :param payload: The request body containing the content of the news article.
-    :param user: The authenticated user dependency, injected by FastAPI.
-    :return: A dictionary containing the summary and the main reasons mentioned
-             in the article.
-    """
-    response = {}
-    summary_result = openai_client.generate_summary(payload.content)
-    if summary_result:
-        summary_result = json.loads(summary_result)
-        response["summary"] = summary_result["影響"]
-        response["reason"] = summary_result["原因"]
-    return response
 
 @router.post("/news_summary_custom_model")
 async def news_summary_custom_model(
         payload: NewsSumaryCustomModelSchema, user=Depends(authenticate_user_token)
 ):
-    if payload.ai_model == OpenAIConfig.model:
-        client = OpenAIClient(OpenAIConfig.api_key)
-    elif payload.ai_model == AnthropicConfig.model:
-        client = AnthropicAIClient(AnthropicConfig.api_key)
-    else:
-        raise ValueError("Invalid model specified.")
-    
+    """
+    Generate a summary of the news article content using a selected AI model.
+
+    :param payload: Request body containing the content and AI model selection.
+    :param user: The authenticated user.
+    :return: Summary and reasons extracted from the article content.
+    """
     try:
-        response = {}
+        if payload.ai_model == OpenAIConfig.model:
+            client = OpenAIClient(OpenAIConfig.api_key)
+        elif payload.ai_model == AnthropicConfig.model:
+            client = AnthropicAIClient(AnthropicConfig.api_key)
+        else:
+            raise ValueError("Invalid model specified.")  # 抛出 ValueError
+
         summary_result = client.generate_summary(payload.content)
-        if summary_result:
-            summary_result = json.loads(summary_result)
-            response["summary"] = summary_result["影響"]
-            response["reason"] = summary_result["原因"]
+        if not summary_result:
+            raise HTTPException(status_code=502, detail="Failed to generate summary from AI model.")
+
+        summary_result = json.loads(summary_result)
+        response = {
+            "summary": summary_result.get("影響", "No summary available"),
+            "reason": summary_result.get("原因", "No reasons available")
+        }
         return response
-    
+
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except json.JSONDecodeError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error decoding JSON response.")
+        raise HTTPException(status_code=502, detail="Invalid response format from AI model.")
+    except requests.RequestException:
+        raise HTTPException(status_code=503, detail="Failed to connect to the AI model API.")
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 @router.post("/{id}/upvote")
 def upvote_article(
@@ -164,5 +176,12 @@ def upvote_article(
     :return: A dictionary containing a message indicating the result of the
              upvote action.
     """
-    message = toggle_upvote(id, user.id, news_db)
-    return {"message": message}
+    try:
+        message = toggle_upvote(id, user.id, news_db)
+        return {"message": message}
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail="Database operation failed.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")

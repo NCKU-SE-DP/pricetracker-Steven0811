@@ -6,16 +6,16 @@ from src.models import User
 from src.database import session_opener
 from src.auth.service import check_user_password_is_correct, create_access_token, pwd_context
 from src.auth.schemas import UserAuthSchema
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from src.auth.dependencies import authenticate_user_token
 from src.config import Auth
-
 
 router = APIRouter(
     prefix="/users",
     tags=["users"],
     responses={404: {"description": "Not found"}},
 )
+
 @router.post("/login")
 async def login_for_access_token(
         form_data: OAuth2PasswordRequestForm = Depends(), user_db: Session = Depends(session_opener)
@@ -28,6 +28,9 @@ async def login_for_access_token(
     :return: A dictionary containing the access token and token type.
     """
     user = check_user_password_is_correct(user_db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+    
     access_token = create_access_token(
         data={"sub": str(user.username)}, expires_delta=timedelta(minutes=Auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
@@ -43,6 +46,10 @@ def create_user(user: UserAuthSchema, user_db: Session = Depends(session_opener)
     :param db: The database session dependency, injected by FastAPI.
     :return: The created user object.
     """
+    existing_user = user_db.query(User).filter(User.username == user.username).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already exists.")
+    
     hashed_password = pwd_context.hash(user.password)
     new_user = User(username=user.username, hashed_password=hashed_password)
     user_db.add(new_user)

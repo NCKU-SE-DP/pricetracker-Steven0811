@@ -101,7 +101,6 @@ class NewsCrawlerBase(metaclass=abc.ABCMeta):
         :return: A `News` object containing the parsed news details (title, URL, time, and content).
         :raises DomainMismatchException: If the URL does not belong to the allowed domain or its child URLs.
         """
-
         if not self._is_valid_url(url):
             raise DomainMismatchException(url)
         return self.parse(url)

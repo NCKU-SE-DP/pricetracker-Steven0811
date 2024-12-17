@@ -1,5 +1,5 @@
-from fastapi import Depends
-from jose import jwt
+from fastapi import Depends, HTTPException
+from jose import jwt, JWTError
 from src.models import User
 from src.database import session_opener
 from fastapi.security import OAuth2PasswordBearer
@@ -18,5 +18,16 @@ def authenticate_user_token(
     :param user_db: The database session dependency, injected by FastAPI.
     :return: The authenticated user object if the token is valid, None otherwise.
     """
-    payload = jwt.decode(token, Auth.JWT_SECRET_KEY, algorithms=["HS256"])
-    return user_db.query(User).filter(User.username == payload.get("sub")).first()
+    try:
+        payload = jwt.decode(token, Auth.JWT_SECRET_KEY, algorithms=["HS256"])
+        username = payload.get("sub")
+        if not username:
+            raise HTTPException(status_code=401, detail="Token is invalid")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Could not validate token")
+    
+    user = user_db.query(User).filter(User.username == payload.get("sub")).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    return user

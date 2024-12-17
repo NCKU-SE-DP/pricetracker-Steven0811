@@ -36,6 +36,7 @@ import requests
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 from .crawler_base import NewsCrawlerBase, Headline, News, NewsWithSummary
+from fastapi import HTTPException
 
 class UDNCrawler(NewsCrawlerBase):
     CHANNEL_ID = 2
@@ -64,17 +65,22 @@ class UDNCrawler(NewsCrawlerBase):
         # If 'page' is a tuple, unpack it and create a range representing those pages (inclusive).
         # If 'page' is an int, create a list containing only that single page number.
         # page_range = range(*page) if isinstance(page, tuple) else [page]
-        if isinstance(page, tuple):
-            start_page, end_page = page
-            page_range = range(start_page, end_page + 1)
-        else:
-            page_range = [page]
+        try:
+            if isinstance(page, tuple):
+                start_page, end_page = page
+                page_range = range(start_page, end_page + 1)
+            else:
+                page_range = [page]
 
-        headlines = []
-        for page_num in page_range:
-            headlines.extend(self._fetch_news(page_num, search_term))
+            headlines = []
+            for page_num in page_range:
+                headlines.extend(self._fetch_news(page_num, search_term))
 
-        return headlines
+            return headlines
+        except requests.exceptions.RequestException as e:
+            raise HTTPException(status_code=502, detail="Failed to fetch news from external source.")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
     def _fetch_news(self, page: int, search_term: str) -> list[Headline]:
         params = self._create_search_params(page, search_term)
@@ -83,30 +89,47 @@ class UDNCrawler(NewsCrawlerBase):
         return headlines
 
     def _create_search_params(self, page: int, search_term: str) -> dict:
-        return {
-            "page": page,
-            "id": f"search:{search_term}",
-            "channelId": self.CHANNEL_ID,
-            "type": "searchword",
-        }
+        try:
+            return {
+                "page": page,
+                "id": f"search:{search_term}",
+                "channelId": self.CHANNEL_ID,
+                "type": "searchword",
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
     def _perform_request(self, url: str | None = None, params: dict | None = None) -> requests.Response:
-        url = url or self.news_website_url
-        response = requests.get(url, params=params, timeout=self.timeout)
-        response.raise_for_status()
-        return response
+        try:
+            url = url or self.news_website_url
+            response = requests.get(url, params=params, timeout=self.timeout)
+            response.raise_for_status()
+            return response
+        
+        except requests.exceptions.RequestException as e:
+            raise HTTPException(status_code=502, detail="Failed to perform request to external source.")
+        
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
     @staticmethod
     def _parse_headlines(response: requests.Response) -> list[Headline]:
-        data = response.json()
-        headlines = []
-        for news_item in data["lists"]:
-            headline = Headline(
-                title=news_item["title"],
-                url=news_item["titleLink"],
-            )
-            headlines.append(headline)
-        return headlines
+        try:
+            data = response.json()
+            headlines = []
+            for news_item in data["lists"]:
+                headline = Headline(
+                    title=news_item["title"],
+                    url=news_item["titleLink"],
+                )
+                headlines.append(headline)
+            return headlines
+        
+        except ValueError as e:
+            raise HTTPException(status_code=502, detail="Failed to parse news data from external source.")
+        
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
     def parse(self, url: str) -> News:
         response = self._perform_request(url=url)
@@ -116,21 +139,26 @@ class UDNCrawler(NewsCrawlerBase):
 
     @staticmethod
     def _extract_news(soup: BeautifulSoup, url: str) -> News:
-        article_title = soup.find("h1", class_="article-content__title").text
-        time = soup.find("time", class_="article-content__time").text
-        content_section = soup.find("section", class_="article-content__editor")
-        content = " ".join(
-            paragraph.text
-            for paragraph in content_section.find_all("p")
-            if paragraph.text.strip() != "" and "▪" not in paragraph.text
-        )
+        try:
+            article_title = soup.find("h1", class_="article-content__title").text
+            time = soup.find("time", class_="article-content__time").text
+            content_section = soup.find("section", class_="article-content__editor")
+            content = " ".join(
+                paragraph.text
+                for paragraph in content_section.find_all("p")
+                if paragraph.text.strip() != "" and "▪" not in paragraph.text
+            )
 
-        return News(
-            url=url,
-            title=article_title,
-            time=time,
-            content=content,
-        )
+            return News(
+                url=url,
+                title=article_title,
+                time=time,
+                content=content,
+            )
+        except AttributeError as e:
+            raise HTTPException(status_code=502, detail="Failed to extract news data from external source.")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
     def save(self, news: NewsWithSummary, db: Session):
         db.add(news)
@@ -142,4 +170,4 @@ class UDNCrawler(NewsCrawlerBase):
             db.commit()
         except Exception as e:
             db.rollback()
-            raise e
+            raise HTTPException(status_code=500, detail="Failed to commit changes to the database.")
