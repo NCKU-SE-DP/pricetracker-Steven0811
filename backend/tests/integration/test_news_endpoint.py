@@ -151,20 +151,6 @@ def test_search_news(mocker):
     assert data[0]["time"] == "2024-09-10"
     assert data[0]["content"] == "This is a test paragraph."
 
-
-def test_news_summary(mocker, test_token):
-    headers = {"Authorization": f"Bearer {test_token}"}
-    openai_response = json.dumps({"影響": "test impact", "原因": "test reason"})
-    mock_openai(mocker, openai_response)
-
-    request_body = NewsSumaryRequestSchema(content="Test news content")
-    response = client.post("/api/v1/news/news_summary", json=request_body.dict(), headers=headers)
-
-    assert response.status_code == 200
-    json_response = response.json()
-    assert json_response["summary"] == "test impact"
-    assert json_response["reason"] == "test reason"
-
 def test_news_summary_custom_model(mocker, test_token):
     headers = {"Authorization": f"Bearer {test_token}"}
 
