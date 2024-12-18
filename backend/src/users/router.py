@@ -62,5 +62,5 @@ def create_user(user: UserAuthSchema, user_db: Session = Depends(session_opener)
 @router.get("/me")
 def read_users_me(user=Depends(authenticate_user_token)):
     logger = Logger(__name__, "read_users_me").get_logger()
-    logger.debug(f"User {user.username} accessed their profile)")
+    logger.debug(f"User {user.username} accessed their profile")
     return {"username": user.username}

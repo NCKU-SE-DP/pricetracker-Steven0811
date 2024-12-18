@@ -71,6 +71,7 @@ def read_user_news(
                     "is_upvoted": upvoted,
                 }
             )
+        logger.debug("User news data retrieved successfully.")
         return user_news_data
 
     except SQLAlchemyError:
