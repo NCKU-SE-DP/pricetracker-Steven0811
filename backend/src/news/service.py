@@ -7,6 +7,7 @@ from src.crawler.udn_crawler import UDNCrawler
 from src.crawler.crawler_base import NewsWithSummary
 from src.llm_client.llm_client import OpenAIClient
 from src.llm_client.config import OpenAIConfig
+from src.error_handler.logger import Logger
 import requests
 
 udn_crawler = UDNCrawler()
@@ -49,6 +50,8 @@ def get_and_summarize_news(is_initial=False):
                        of news data for the initial run.
     :return: None
     """
+    logger = Logger(__name__, "get_and_summarize_news").get_logger()
+    logger.debug("Fetching news data...")
     news_data = get_new_info("價格", is_initial=is_initial)
     for news in news_data:
         news_title = news["title"]
@@ -104,6 +107,7 @@ def toggle_upvote(article_id, user_id, news_db):
     :param db: The database session dependency.
     :return: A message indicating whether the article was upvoted or un-upvoted.
     """
+    logger = Logger(__name__, "toggle_upvote").get_logger()
     try:
         existing_upvote = news_db.execute(
             select(user_news_association_table).where(
@@ -119,6 +123,7 @@ def toggle_upvote(article_id, user_id, news_db):
             )
             news_db.execute(delete_statement)
             news_db.commit()
+            logger.debug("Upvote removed.")
             return "Upvote removed"
         else:
             insert_statement = insert(user_news_association_table).values(
@@ -126,6 +131,7 @@ def toggle_upvote(article_id, user_id, news_db):
             )
             news_db.execute(insert_statement)
             news_db.commit()
+            logger.debug("Article upvoted.")
             return "Article upvoted"
     except IntegrityError as ie:
         raise HTTPException(status_code=400, detail="Invalid data for upvote operation.")

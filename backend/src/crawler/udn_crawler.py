@@ -37,6 +37,7 @@ from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 from .crawler_base import NewsCrawlerBase, Headline, News, NewsWithSummary
 from fastapi import HTTPException
+from src.error_handler.logger import Logger
 
 class UDNCrawler(NewsCrawlerBase):
     CHANNEL_ID = 2
@@ -65,6 +66,7 @@ class UDNCrawler(NewsCrawlerBase):
         # If 'page' is a tuple, unpack it and create a range representing those pages (inclusive).
         # If 'page' is an int, create a list containing only that single page number.
         # page_range = range(*page) if isinstance(page, tuple) else [page]
+        logger = Logger(__name__, "get_headline").get_logger()
         try:
             if isinstance(page, tuple):
                 start_page, end_page = page
@@ -76,6 +78,7 @@ class UDNCrawler(NewsCrawlerBase):
             for page_num in page_range:
                 headlines.extend(self._fetch_news(page_num, search_term))
 
+            logger.debug(f"Fetched {len(headlines)} headlines for search term '{search_term}'.")
             return headlines
         except requests.exceptions.RequestException as e:
             raise HTTPException(status_code=502, detail="Failed to fetch news from external source.")
@@ -124,9 +127,11 @@ class UDNCrawler(NewsCrawlerBase):
             raise HTTPException(status_code=502, detail="Failed to parse news data from external source.")
 
     def parse(self, url: str) -> News:
+        logger = Logger(__name__, "parse").get_logger()
         response = self._perform_request(url=url)
         soup = BeautifulSoup(response.text, "html.parser")
         news = self._extract_news(soup, url)
+        logger.debug(f"Parsed news article from URL: {url}")
         return news
 
     @staticmethod
@@ -151,8 +156,10 @@ class UDNCrawler(NewsCrawlerBase):
             raise HTTPException(status_code=502, detail="Failed to extract news data from external source.")
 
     def save(self, news: NewsWithSummary, db: Session):
+        logger = Logger(__name__, "save").get_logger()
         db.add(news)
         self._commit_changes(db)
+        logger.debug(f"Saved news article to the database: {news.title}")
 
     @staticmethod
     def _commit_changes(db: Session):
