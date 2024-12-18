@@ -2,7 +2,9 @@ from fastapi.responses import JSONResponse
 from fastapi.requests import Request
 from fastapi.exceptions import HTTPException
 import sentry_sdk
+import traceback
 from src.crawler.exceptions import DomainMismatchException
+from src.error_handler.logger import Logger
 
 class ErrorHandler:
     def __init__(self, error, code: int, message: str):
@@ -12,6 +14,13 @@ class ErrorHandler:
 
     def catch_error(self, request: Request):
         sentry_sdk.capture_exception(self.error)
+        tb = traceback.extract_tb(self.error.__traceback__)
+        filename, lineno, _, _ = tb[-1]
+        logger = Logger("ErrorHandler", "catch_error").get_logger()
+        if self.code == 401 or self.code == 400:
+            logger.warning(f"Client error in {filename} at line {lineno}: {self.message}")
+        else:
+            logger.error(f"System error in {filename} at line {lineno}: {self.message}")
         return JSONResponse(status_code=self.code, content={"message": self.message})
 
 
