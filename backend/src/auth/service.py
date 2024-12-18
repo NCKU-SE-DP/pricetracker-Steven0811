@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException
 from jose import jwt
 from src.config import Auth
+from src.error_handler.logger import Logger
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def verify(plain_password, hashed_password):

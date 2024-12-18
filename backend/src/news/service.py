@@ -93,7 +93,6 @@ def news_exists(article_id, news_db: Session):
     try:
         return news_db.query(NewsArticle).filter_by(id=article_id).first() is not None
     except SQLAlchemyError as db_err:
-        print(f"Database error while checking if article exists: {db_err}")
         raise HTTPException(status_code=500, detail="Failed to check article existence.")
 
 def toggle_upvote(article_id, user_id, news_db):
@@ -129,11 +128,6 @@ def toggle_upvote(article_id, user_id, news_db):
             news_db.commit()
             return "Article upvoted"
     except IntegrityError as ie:
-        print(f"Integrity error: {ie}")
         raise HTTPException(status_code=400, detail="Invalid data for upvote operation.")
     except SQLAlchemyError as db_err:
-        print(f"Database error: {db_err}")
         raise HTTPException(status_code=500, detail="Failed to toggle upvote.")
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")

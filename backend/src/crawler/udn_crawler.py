@@ -79,8 +79,6 @@ class UDNCrawler(NewsCrawlerBase):
             return headlines
         except requests.exceptions.RequestException as e:
             raise HTTPException(status_code=502, detail="Failed to fetch news from external source.")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
     def _fetch_news(self, page: int, search_term: str) -> list[Headline]:
         params = self._create_search_params(page, search_term)
@@ -108,9 +106,6 @@ class UDNCrawler(NewsCrawlerBase):
         
         except requests.exceptions.RequestException as e:
             raise HTTPException(status_code=502, detail="Failed to perform request to external source.")
-        
-        except Exception as e:
-            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
     @staticmethod
     def _parse_headlines(response: requests.Response) -> list[Headline]:
@@ -127,9 +122,6 @@ class UDNCrawler(NewsCrawlerBase):
         
         except ValueError as e:
             raise HTTPException(status_code=502, detail="Failed to parse news data from external source.")
-        
-        except Exception as e:
-            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
     def parse(self, url: str) -> News:
         response = self._perform_request(url=url)
@@ -157,8 +149,6 @@ class UDNCrawler(NewsCrawlerBase):
             )
         except AttributeError as e:
             raise HTTPException(status_code=502, detail="Failed to extract news data from external source.")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
     def save(self, news: NewsWithSummary, db: Session):
         db.add(news)

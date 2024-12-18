@@ -26,5 +26,3 @@ def get_necessities_prices(
         ).json()
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=502, detail="Failed to fetch prices from external source.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")

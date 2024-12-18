@@ -12,6 +12,7 @@ from src.news.utils import _id_counter
 from src.llm_client.llm_client import OpenAIClient, AnthropicAIClient
 from src.crawler.udn_crawler import UDNCrawler
 from src.llm_client.config import OpenAIConfig, AnthropicConfig
+from src.error_handler.logger import Logger
 
 openai_client = OpenAIClient(OpenAIConfig.api_key)
 udn_crawler = UDNCrawler()
@@ -40,11 +41,8 @@ def read_news(news_db=Depends(session_opener)):
                 {**article.__dict__, "upvotes": upvote_count, "is_upvoted": is_upvoted}
             )
         return formatted_news
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         raise HTTPException(status_code=500, detail="Database query failed.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
-
 
 @router.get("/user_news")
 def read_user_news(
@@ -59,6 +57,7 @@ def read_user_news(
     :return: A list of formatted news articles, each including the number of
              upvotes and whether the authenticated user has upvoted the article.
     """
+    logger = Logger(__name__, "read_user_news").get_logger()
     try:
         news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
         user_news_data = []
@@ -74,13 +73,11 @@ def read_user_news(
             )
         return user_news_data
 
-    except SQLAlchemyError as db_err:
+    except SQLAlchemyError:
         raise HTTPException(status_code=500, detail="Database query failed.")
     except AttributeError:
+        logger.warning("User not found in request.")
         raise HTTPException(status_code=401, detail="Authentication failed. Invalid user.")
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 @router.post("/search_news")
 async def search_news(request: PromptRequest):
@@ -116,10 +113,8 @@ async def search_news(request: PromptRequest):
             detailed_news["content"] = " ".join(detailed_news["content"])
             detailed_news["id"] = next(_id_counter)
             news_list.append(detailed_news)
-        except requests.RequestException as e:
+        except requests.RequestException:
             raise HTTPException(status_code=502, detail="Failed to fetch news from external source.")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail="An unexpected error occurred.")
     return sorted(news_list, key=lambda x: x["time"], reverse=True)
 
 @router.post("/news_summary_custom_model")
@@ -133,13 +128,16 @@ async def news_summary_custom_model(
     :param user: The authenticated user.
     :return: Summary and reasons extracted from the article content.
     """
+    logger = Logger(__name__, "news_summary_custom_model").get_logger()
     try:
         if payload.ai_model == OpenAIConfig.model:
+            logger.debug("OpenAI model selected")
             client = OpenAIClient(OpenAIConfig.api_key)
         elif payload.ai_model == AnthropicConfig.model:
+            logger.debug("Anthropic model selected")
             client = AnthropicAIClient(AnthropicConfig.api_key)
         else:
-            raise ValueError("Invalid model specified.")  # 抛出 ValueError
+            raise HTTPException(status_code=400, detail="Invalid model specified.")
 
         summary_result = client.generate_summary(payload.content)
         if not summary_result:
@@ -152,15 +150,11 @@ async def news_summary_custom_model(
         }
         return response
 
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
     except json.JSONDecodeError:
         raise HTTPException(status_code=502, detail="Invalid response format from AI model.")
     except requests.RequestException:
         raise HTTPException(status_code=503, detail="Failed to connect to the AI model API.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
-
+    
 @router.post("/{id}/upvote")
 def upvote_article(
         id,
@@ -176,12 +170,5 @@ def upvote_article(
     :return: A dictionary containing a message indicating the result of the
              upvote action.
     """
-    try:
-        message = toggle_upvote(id, user.id, news_db)
-        return {"message": message}
-    except SQLAlchemyError as e:
-        raise HTTPException(status_code=500, detail="Database operation failed.")
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+    message = toggle_upvote(id, user.id, news_db)
+    return {"message": message}
