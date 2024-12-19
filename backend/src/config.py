@@ -9,7 +9,7 @@ class Auth():
     ACCESS_TOKEN_EXPIRE_MINUTES = 30
     DEFAULT_ACCESS_TOKEN_EXPIRE_MINUTES = 15
     TOKER_URL = "/api/v1/users/login"
-
+    
 class Basic():
     ALLOWED_ORIGIN = "http://localhost:8080"
     API_PREFIX = "/api/v1"

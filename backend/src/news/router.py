@@ -150,12 +150,11 @@ async def news_summary_custom_model(
             "reason": summary_result.get("原因", "No reasons available")
         }
         return response
-
     except json.JSONDecodeError:
         raise HTTPException(status_code=502, detail="Invalid response format from AI model.")
     except requests.RequestException:
         raise HTTPException(status_code=503, detail="Failed to connect to the AI model API.")
-    
+   
 @router.post("/{id}/upvote")
 def upvote_article(
         id,
