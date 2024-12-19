@@ -8,7 +8,7 @@ from src.main import app
 from src.database import Base
 from src.models import User, NewsArticle
 from src.database import session_opener
-from src.news.schemas import NewsSumaryRequestSchema
+from src.news.schemas import NewsSumaryRequestSchema, NewsSumaryCustomModelSchema
 from src.auth.service import pwd_context
 from unittest.mock import Mock
 
@@ -111,20 +111,14 @@ def test_read_user_news(test_user, test_token, test_articles):
     assert json_response[1]["is_upvoted"] is False
 
 def mock_openai(mocker, return_content):
-    mock_openai_client = mocker.patch('src.llm_client.openai_client.OpenAI')
+    mock_generate = mocker.patch('src.llm_client.llm_client.OpenAIClient._generate_text')
+    
+    mock_generate.return_value = return_content
 
-    mock_message = Mock()
-    mock_message.content = return_content
-
-    mock_choice = Mock()
-    mock_choice.message = mock_message
-
-    mock_completion = Mock()
-    mock_completion.choices = [mock_choice]
-
-    mock_openai_client.return_value.chat.completions.create.return_value = mock_completion
-
-    return mock_openai_client
+def mock_anthropic(mocker, return_content):
+    mock_generate = mocker.patch('src.llm_client.llm_client.AnthropicAIClient._generate_text')
+    
+    mock_generate.return_value = return_content
 
 def test_search_news(mocker):
     mock_openai(mocker, "keywords")
@@ -171,6 +165,30 @@ def test_news_summary(mocker, test_token):
     assert json_response["summary"] == "test impact"
     assert json_response["reason"] == "test reason"
 
+def test_news_summary_custom_model(mocker, test_token):
+    headers = {"Authorization": f"Bearer {test_token}"}
+
+    openai_response = json.dumps({"影響": "test impact(OpenAI)", "原因": "test reason(OpenAI)"})
+    mock_openai(mocker, openai_response)
+
+    request_body = NewsSumaryCustomModelSchema(content="Test news content", ai_model="openai:gpt-3.5-turbo")
+    response = client.post("/api/v1/news/news_summary_custom_model", json=request_body.dict(), headers=headers)
+
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["summary"] == "test impact(OpenAI)"
+    assert json_response["reason"] == "test reason(OpenAI)"
+
+    anthropic_response = json.dumps({"影響": "test impact(Anthropic)", "原因": "test reason(Anthropic)"})
+    mock_anthropic(mocker, anthropic_response)
+
+    request_body = NewsSumaryCustomModelSchema(content="Test news content", ai_model="anthropic:claude-3-5-sonnet-20240620")
+    response = client.post("/api/v1/news/news_summary_custom_model", json=request_body.dict(), headers=headers)
+
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["summary"] == "test impact(Anthropic)"
+    assert json_response["reason"] == "test reason(Anthropic)"
 
 def test_upvote_article(test_user_and_articles, test_token):
     user, articles = test_user_and_articles

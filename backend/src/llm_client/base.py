@@ -1,24 +1,23 @@
 import abc
+import aisuite as ai
+from src.llm_client.config import Prompt
 
-from pydantic import BaseModel, Field
-from openai import OpenAI
-
-from src.llm_client.config import AI
-
-
-class MessagePassingInterface(BaseModel):
-    system_content: str = Field(...)
-    user_content: str = Field(...)
-    
-    @property
-    def to_dict(self) -> list[dict[str, str]]:
-        dicts = [
-            {"role": "system", "content": f"{self.system_content}"},
-            {"role": "user", "content": f"{self.user_content}"}
+class ChatCompletionProvider:
+    def __init__(self, system_content: str, user_content: str):
+        self.messages = [
+            {"role": "system", "content": f"{system_content}"},
+            {"role": "user", "content": f"{user_content}"},
         ]
-        return dicts
-    
+        self.temperature = 0.75
 
+    def chat_completion_create(self, model: str, client: ai.Client) -> None:
+        response = client.chat.completions.create(
+            messages = self.messages, 
+            model = model,
+            temperature = self.temperature
+        )
+        return response.choices[0].message.content
+    
 class LLMClientBase(metaclass=abc.ABCMeta):
     _api_key : str
     
@@ -53,9 +52,8 @@ class LLMClientBase(metaclass=abc.ABCMeta):
         """
         return NotImplemented
     
-    @staticmethod
     @abc.abstractmethod
-    def extract_search_keywords(text: str) -> str:
+    def extract_search_keywords(self, text: str) -> str:
         """
         Extract search keywords from a given text.
 
@@ -69,31 +67,41 @@ class LLMClientBase(metaclass=abc.ABCMeta):
         :return: A string containing the extracted search keywords.
         """
         return NotImplemented
-    
+
+
+class LLMClientTemplate(LLMClientBase):
+    def __init__(self, _api_key: str, chat_provider_cls = ChatCompletionProvider):
+        self.client = None
+        self.model = None
+        self._api_key = _api_key
+        self.chat_provider_cls = chat_provider_cls
+        self._initialize_client()
+
     @abc.abstractmethod
-    def _generate_ai(self, message: MessagePassingInterface) -> OpenAI:
+    def _initialize_client(self):
         """
-        Generate an AI response based on the given message.
+        Initialize the AI client.
 
-        This method takes a list of dictionaries, where each dictionary contains the role and content
-        of a message. It generates an AI response based on the given messages.
-
-        :param message: A list of dictionaries containing the role and content of messages.
-
-        :return: An OpenAI object representing the generated AI response.
+        This method should be implemented by subclasses to initialize the specific AI client.
         """
         return NotImplemented
     
-    @staticmethod
-    def _generate_text(ai: OpenAI) -> str:
-        """
-        Generate text from an OpenAI object.
-
-        This method takes an OpenAI object as input and returns the generated text from the AI response.
-
-        :param ai: An OpenAI object representing the generated AI response.
-
-        :return: The generated text from the AI response.
-        """
-
-        return ai.choices[AI.FIRST_CHOICE_INDEX].message.content
+    def _generate_text(self,system_content: str, user_content: str) -> None:
+        try:
+            chat_provider = self.chat_provider_cls(
+                system_content=system_content,
+                user_content=user_content
+            )
+            return chat_provider.chat_completion_create(self.model, self.client)
+        
+        except Exception as error:
+            raise ValueError(f"[LLMClientTemplate] Chat provider creation failed: {error}")
+        
+    def evaluate_relevance(self, title: str) -> str:
+        return self._generate_text(Prompt.relevance_prompt, title)
+    
+    def generate_summary(self, content: str) -> str:
+        return self._generate_text(Prompt.summary_prompt, content)
+    
+    def extract_search_keywords(self, text: str) -> str:
+        return self._generate_text(Prompt.keyword_prompt, text)

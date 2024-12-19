@@ -1,17 +1,18 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from src.models import NewsArticle
 from src.database import session_opener
-from src.news.schemas import NewsSumaryRequestSchema, PromptRequest
+from src.news.schemas import NewsSumaryRequestSchema, PromptRequest, NewsSumaryCustomModelSchema
 from src.auth.dependencies import authenticate_user_token
 from src.news.service import get_article_upvote_details, toggle_upvote, get_new_info
 import json
 import requests
 from bs4 import BeautifulSoup
 from src.news.utils import _id_counter
-from src.llm_client.openai_client import OpenAIClient
+from src.llm_client.llm_client import OpenAIClient, AnthropicAIClient
 from src.crawler.udn_crawler import UDNCrawler
+from src.llm_client.config import OpenAIConfig, AnthropicConfig
 
-openai_client = OpenAIClient(_api_key="xxx")
+openai_client = OpenAIClient(OpenAIConfig.api_key)
 udn_crawler = UDNCrawler()
 
 router = APIRouter(
@@ -103,7 +104,6 @@ async def search_news(request: PromptRequest):
             print(e)
     return sorted(news_list, key=lambda x: x["time"], reverse=True)
 
-
 @router.post("/news_summary")
 async def news_summary(
         payload: NewsSumaryRequestSchema, user=Depends(authenticate_user_token)
@@ -123,6 +123,31 @@ async def news_summary(
         response["summary"] = summary_result["影響"]
         response["reason"] = summary_result["原因"]
     return response
+
+@router.post("/news_summary_custom_model")
+async def news_summary_custom_model(
+        payload: NewsSumaryCustomModelSchema, user=Depends(authenticate_user_token)
+):
+    if payload.ai_model == OpenAIConfig.model:
+        client = OpenAIClient(OpenAIConfig.api_key)
+    elif payload.ai_model == AnthropicConfig.model:
+        client = AnthropicAIClient(AnthropicConfig.api_key)
+    else:
+        raise ValueError("Invalid model specified.")
+    
+    try:
+        response = {}
+        summary_result = client.generate_summary(payload.content)
+        if summary_result:
+            summary_result = json.loads(summary_result)
+            response["summary"] = summary_result["影響"]
+            response["reason"] = summary_result["原因"]
+        return response
+    
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error decoding JSON response.")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 @router.post("/{id}/upvote")
 def upvote_article(

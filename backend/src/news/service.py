@@ -3,11 +3,12 @@ from src.models import NewsArticle, user_news_association_table
 from sqlalchemy import delete, insert, select
 from src.crawler.udn_crawler import UDNCrawler
 from src.crawler.crawler_base import NewsWithSummary
-from src.llm_client.openai_client import OpenAIClient
+from src.llm_client.llm_client import OpenAIClient
+from src.llm_client.config import OpenAIConfig
 import requests
 
 udn_crawler = UDNCrawler()
-openai_client = OpenAIClient(_api_key = "xxx")
+openai_client = OpenAIClient(OpenAIConfig.api_key)
 
 def add_news_to_db(news_data):
     """

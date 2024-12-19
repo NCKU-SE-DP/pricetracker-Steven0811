@@ -8,6 +8,8 @@ on:
       - 'fix/integration-test'
       - 'refactor/crawler-oop-implementation'
       - 'refactor/llm_client'
+      - 'refactor/llm-client-template-methods-pattern'
+      
   pull_request:
     branches:
       - 'main'
@@ -35,13 +37,18 @@ jobs:
       - name: Run unit tests
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          
         run: |
           cd backend
-          pytest tests/unit --cov=src --cov-report=xml --disable-warnings
+          pytest tests/crawler --cov=src --cov-report=xml --disable-warnings
+          pytest tests/llm_client --cov=src --cov-report=xml --disable-warnings
 
       - name: Run integration tests (with mock DB)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
         run: |
           cd backend
           pytest tests/ --cov=src --cov-report=xml --disable-warnings
