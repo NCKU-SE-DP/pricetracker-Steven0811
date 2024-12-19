@@ -2,11 +2,9 @@ import abc
 from pydantic import AnyHttpUrl
 from tldextract import tldextract
 from sqlalchemy.orm import Session
-
 from .exceptions import DomainMismatchException
-
 from pydantic import BaseModel, Field, AnyHttpUrl
-
+from src.error_handler.logger import Logger
 
 class Headline(BaseModel):
     title: str = Field(
@@ -101,9 +99,10 @@ class NewsCrawlerBase(metaclass=abc.ABCMeta):
         :return: A `News` object containing the parsed news details (title, URL, time, and content).
         :raises DomainMismatchException: If the URL does not belong to the allowed domain or its child URLs.
         """
-
+        logger = Logger(__name__, "validate_and_parse").get_logger()
         if not self._is_valid_url(url):
             raise DomainMismatchException(url)
+        logger.info(f"Valid URL: {url}")
         return self.parse(url)
 
 

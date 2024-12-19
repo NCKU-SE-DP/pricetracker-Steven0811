@@ -1,10 +1,13 @@
 from sqlalchemy.orm import Session
 from src.models import NewsArticle, user_news_association_table
 from sqlalchemy import delete, insert, select
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from fastapi import HTTPException
 from src.crawler.udn_crawler import UDNCrawler
 from src.crawler.crawler_base import NewsWithSummary
 from src.llm_client.llm_client import OpenAIClient
 from src.llm_client.config import OpenAIConfig
+from src.error_handler.logger import Logger
 import requests
 
 udn_crawler = UDNCrawler()
@@ -47,6 +50,8 @@ def get_and_summarize_news(is_initial=False):
                        of news data for the initial run.
     :return: None
     """
+    logger = Logger(__name__, "get_and_summarize_news").get_logger()
+    logger.info("Fetching news data...")
     news_data = get_new_info("價格", is_initial=is_initial)
     for news in news_data:
         news_title = news["title"]
@@ -88,7 +93,10 @@ def get_article_upvote_details(article_id, uid, news_db):
     return upvote_count, voted
 
 def news_exists(article_id, news_db: Session):
-    return news_db.query(NewsArticle).filter_by(id=article_id).first() is not None
+    try:
+        return news_db.query(NewsArticle).filter_by(id=article_id).first() is not None
+    except SQLAlchemyError as db_err:
+        raise HTTPException(status_code=500, detail="Failed to check article existence.")
 
 def toggle_upvote(article_id, user_id, news_db):
     """
@@ -99,25 +107,33 @@ def toggle_upvote(article_id, user_id, news_db):
     :param db: The database session dependency.
     :return: A message indicating whether the article was upvoted or un-upvoted.
     """
-    existing_upvote = news_db.execute(
-        select(user_news_association_table).where(
-            user_news_association_table.c.news_articles_id == article_id,
-            user_news_association_table.c.user_id == user_id,
-        )
-    ).scalar()
+    logger = Logger(__name__, "toggle_upvote").get_logger()
+    try:
+        existing_upvote = news_db.execute(
+            select(user_news_association_table).where(
+                user_news_association_table.c.news_articles_id == article_id,
+                user_news_association_table.c.user_id == user_id,
+            )
+        ).scalar()
 
-    if existing_upvote:
-        delete_statement = delete(user_news_association_table).where(
-            user_news_association_table.c.news_articles_id == article_id,
-            user_news_association_table.c.user_id == user_id,
-        )
-        news_db.execute(delete_statement)
-        news_db.commit()
-        return "Upvote removed"
-    else:
-        insert_statement = insert(user_news_association_table).values(
-            news_articles_id=article_id, user_id=user_id
-        )
-        news_db.execute(insert_statement)
-        news_db.commit()
-        return "Article upvoted"
+        if existing_upvote:
+            delete_statement = delete(user_news_association_table).where(
+                user_news_association_table.c.news_articles_id == article_id,
+                user_news_association_table.c.user_id == user_id,
+            )
+            news_db.execute(delete_statement)
+            news_db.commit()
+            logger.info("Upvote removed.")
+            return "Upvote removed"
+        else:
+            insert_statement = insert(user_news_association_table).values(
+                news_articles_id=article_id, user_id=user_id
+            )
+            news_db.execute(insert_statement)
+            news_db.commit()
+            logger.info("Article upvoted.")
+            return "Article upvoted"
+    except IntegrityError as ie:
+        raise HTTPException(status_code=400, detail="Invalid data for upvote operation.")
+    except SQLAlchemyError as db_err:
+        raise HTTPException(status_code=500, detail="Failed to toggle upvote.")
