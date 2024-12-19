@@ -22,7 +22,7 @@ def get_necessities_prices(
     """
     logger = Logger(__name__, "get_necessities_prices").get_logger()
     try:
-        logger.debug(f"Fetching prices for category '{category_name}' and commodity '{commodity_name}'.")
+        logger.info(f"Fetching prices for category '{category_name}' and commodity '{commodity_name}'.")
         return requests.get(
             "https://opendata.ey.gov.tw/api/ConsumerProtection/NecessitiesPrice",
             params={"CategoryName": category_name, "Name": commodity_name},

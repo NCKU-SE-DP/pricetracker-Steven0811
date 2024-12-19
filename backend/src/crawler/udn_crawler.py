@@ -78,7 +78,7 @@ class UDNCrawler(NewsCrawlerBase):
             for page_num in page_range:
                 headlines.extend(self._fetch_news(page_num, search_term))
 
-            logger.debug(f"Fetched {len(headlines)} headlines for search term '{search_term}'.")
+            logger.info(f"Fetched {len(headlines)} headlines for search term '{search_term}'.")
             return headlines
         except requests.exceptions.RequestException as e:
             raise HTTPException(status_code=502, detail="Failed to fetch news from external source.")
@@ -131,7 +131,7 @@ class UDNCrawler(NewsCrawlerBase):
         response = self._perform_request(url=url)
         soup = BeautifulSoup(response.text, "html.parser")
         news = self._extract_news(soup, url)
-        logger.debug(f"Parsed news article from URL: {url}")
+        logger.info(f"Parsed news article from URL: {url}")
         return news
 
     @staticmethod

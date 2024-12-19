@@ -51,7 +51,7 @@ def get_and_summarize_news(is_initial=False):
     :return: None
     """
     logger = Logger(__name__, "get_and_summarize_news").get_logger()
-    logger.debug("Fetching news data...")
+    logger.info("Fetching news data...")
     news_data = get_new_info("價格", is_initial=is_initial)
     for news in news_data:
         news_title = news["title"]
@@ -123,7 +123,7 @@ def toggle_upvote(article_id, user_id, news_db):
             )
             news_db.execute(delete_statement)
             news_db.commit()
-            logger.debug("Upvote removed.")
+            logger.info("Upvote removed.")
             return "Upvote removed"
         else:
             insert_statement = insert(user_news_association_table).values(
@@ -131,7 +131,7 @@ def toggle_upvote(article_id, user_id, news_db):
             )
             news_db.execute(insert_statement)
             news_db.commit()
-            logger.debug("Article upvoted.")
+            logger.info("Article upvoted.")
             return "Article upvoted"
     except IntegrityError as ie:
         raise HTTPException(status_code=400, detail="Invalid data for upvote operation.")

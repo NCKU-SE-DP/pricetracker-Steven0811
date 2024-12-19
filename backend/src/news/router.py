@@ -71,7 +71,7 @@ def read_user_news(
                     "is_upvoted": upvoted,
                 }
             )
-        logger.debug("User news data retrieved successfully.")
+        logger.info("User news data retrieved successfully.")
         return user_news_data
 
     except SQLAlchemyError:
@@ -132,10 +132,10 @@ async def news_summary_custom_model(
     logger = Logger(__name__, "news_summary_custom_model").get_logger()
     try:
         if payload.ai_model == OpenAIConfig.model:
-            logger.debug("OpenAI model selected")
+            logger.info("OpenAI model selected")
             client = OpenAIClient(OpenAIConfig.api_key)
         elif payload.ai_model == AnthropicConfig.model:
-            logger.debug("Anthropic model selected")
+            logger.info("Anthropic model selected")
             client = AnthropicAIClient(AnthropicConfig.api_key)
         else:
             raise HTTPException(status_code=400, detail="Invalid model specified.")

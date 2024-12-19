@@ -35,7 +35,7 @@ def check_user_password_is_correct(user_db, username, password):
     
     if not verify(password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid username or password.")
-    logger.debug(f"User {user.username} authenticated successfully.")
+    logger.info(f"User {user.username} authenticated successfully.")
     return user
 
 def create_access_token(data, expires_delta=None):

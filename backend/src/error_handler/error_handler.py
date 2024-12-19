@@ -17,7 +17,7 @@ class ErrorHandler:
         tb = traceback.extract_tb(self.error.__traceback__)
         filename, lineno, _, _ = tb[-1]
         logger = Logger("ErrorHandler", "catch_error").get_logger()
-        if self.code == 401 or self.code == 400:
+        if self.code == 400:
             logger.warning(f"Client error in {filename} at line {lineno}: {self.message}")
         else:
             logger.error(f"System error in {filename} at line {lineno}: {self.message}")

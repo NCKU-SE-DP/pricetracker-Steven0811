@@ -33,7 +33,7 @@ async def login_for_access_token(
     access_token = create_access_token(
         data={"sub": str(user.username)}, expires_delta=timedelta(minutes=Auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    logger.debug(f"User {user.username} logged in successfully.")
+    logger.info(f"User {user.username} logged in successfully.")
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -56,11 +56,11 @@ def create_user(user: UserAuthSchema, user_db: Session = Depends(session_opener)
     user_db.add(new_user)
     user_db.commit()
     user_db.refresh(new_user)
-    logger.debug(f"User {new_user.username} created successfully.")
+    logger.info(f"User {new_user.username} created successfully.")
     return new_user
 
 @router.get("/me")
 def read_users_me(user=Depends(authenticate_user_token)):
     logger = Logger(__name__, "read_users_me").get_logger()
-    logger.debug(f"User {user.username} accessed their profile")
+    logger.info(f"User {user.username} accessed their profile")
     return {"username": user.username}
