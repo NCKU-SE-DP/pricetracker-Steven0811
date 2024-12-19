@@ -9,6 +9,7 @@ on:
       - 'refactor/crawler-oop-implementation'
       - 'refactor/llm_client'
       - 'refactor/llm-client-template-methods-pattern'
+      - 'refactor/error_handling'
       
   pull_request:
     branches:
