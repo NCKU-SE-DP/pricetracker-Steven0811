@@ -6,10 +6,7 @@ on:
       - 'main'
       - 'develop'
       - 'fix/integration-test'
-      - 'refactor/crawler-oop-implementation'
-      - 'refactor/llm_client'
-      - 'refactor/llm-client-template-methods-pattern'
-      - 'refactor/error_handling'
+      - 'refactor/*'
       
   pull_request:
     branches:
