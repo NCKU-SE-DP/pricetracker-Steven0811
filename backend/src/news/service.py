@@ -108,32 +108,36 @@ def toggle_upvote(article_id, user_id, news_db):
     :return: A message indicating whether the article was upvoted or un-upvoted.
     """
     logger = Logger(__name__, "toggle_upvote").get_logger()
-    try:
-        existing_upvote = news_db.execute(
-            select(user_news_association_table).where(
-                user_news_association_table.c.news_articles_id == article_id,
-                user_news_association_table.c.user_id == user_id,
-            )
-        ).scalar()
+    existing_upvote = news_db.execute(
+        select(user_news_association_table).where(
+            user_news_association_table.c.news_articles_id == article_id,
+            user_news_association_table.c.user_id == user_id,
+        )
+    ).scalar()
 
-        if existing_upvote:
-            delete_statement = delete(user_news_association_table).where(
-                user_news_association_table.c.news_articles_id == article_id,
-                user_news_association_table.c.user_id == user_id,
-            )
+    if existing_upvote:
+        delete_statement = delete(user_news_association_table).where(
+            user_news_association_table.c.news_articles_id == article_id,
+            user_news_association_table.c.user_id == user_id,
+        )
+        try:
             news_db.execute(delete_statement)
             news_db.commit()
-            logger.info("Upvote removed.")
-            return "Upvote removed"
-        else:
+        except SQLAlchemyError:
+            raise HTTPException(status_code=500, detail="Failed to remove upvote.")
+        logger.info("Upvote removed.")
+        return "Upvote removed"
+    else:
+        try:
             insert_statement = insert(user_news_association_table).values(
                 news_articles_id=article_id, user_id=user_id
             )
+        except IntegrityError:
+            raise HTTPException(status_code=400, detail="Invalid data for upvote operation.")
+        try:
             news_db.execute(insert_statement)
             news_db.commit()
-            logger.info("Article upvoted.")
-            return "Article upvoted"
-    except IntegrityError as ie:
-        raise HTTPException(status_code=400, detail="Invalid data for upvote operation.")
-    except SQLAlchemyError as db_err:
-        raise HTTPException(status_code=500, detail="Failed to toggle upvote.")
+        except SQLAlchemyError:
+            raise HTTPException(status_code=500, detail="Failed to upvote article.")
+        logger.info("Article upvoted.")
+        return "Article upvoted"

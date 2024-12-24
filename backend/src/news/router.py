@@ -7,7 +7,6 @@ from src.auth.dependencies import authenticate_user_token
 from src.news.service import get_article_upvote_details, toggle_upvote, get_new_info
 import json
 import requests
-from bs4 import BeautifulSoup
 from src.news.utils import _id_counter
 from src.llm_client.llm_client import OpenAIClient, AnthropicAIClient
 from src.crawler.udn_crawler import UDNCrawler
@@ -34,15 +33,16 @@ def read_news(news_db=Depends(session_opener)):
     """
     try:
         news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
-        formatted_news = []
-        for article in news:
-            upvote_count, is_upvoted = get_article_upvote_details(article.id, None, news_db)
-            formatted_news.append(
-                {**article.__dict__, "upvotes": upvote_count, "is_upvoted": is_upvoted}
-            )
-        return formatted_news
     except SQLAlchemyError:
         raise HTTPException(status_code=500, detail="Database query failed.")
+    formatted_news = []
+    for article in news:
+        upvote_count, is_upvoted = get_article_upvote_details(article.id, None, news_db)
+        formatted_news.append(
+            {**article.__dict__, "upvotes": upvote_count, "is_upvoted": is_upvoted}
+        )
+    return formatted_news
+
 
 @router.get("/user_news")
 def read_user_news(
@@ -60,8 +60,11 @@ def read_user_news(
     logger = Logger(__name__, "read_user_news").get_logger()
     try:
         news = news_db.query(NewsArticle).order_by(NewsArticle.time.desc()).all()
-        user_news_data = []
+    except SQLAlchemyError:
+        raise HTTPException(status_code=500, detail="Database query failed.")
 
+    try:
+        user_news_data = []
         for article in news:
             upvotes, upvoted = get_article_upvote_details(article.id, user.id, news_db)
             user_news_data.append(
@@ -71,14 +74,12 @@ def read_user_news(
                     "is_upvoted": upvoted,
                 }
             )
-        logger.info("User news data retrieved successfully.")
-        return user_news_data
-
-    except SQLAlchemyError:
-        raise HTTPException(status_code=500, detail="Database query failed.")
     except AttributeError:
         logger.warning("User not found in request.")
         raise HTTPException(status_code=401, detail="Authentication failed. Invalid user.")
+    
+    logger.info("User news data retrieved successfully.")
+    return user_news_data
 
 @router.post("/search_news")
 async def search_news(request: PromptRequest):
@@ -92,30 +93,18 @@ async def search_news(request: PromptRequest):
     news_list = []
     keywords = openai_client.extract_search_keywords(user_prompt)
     news_items = get_new_info(keywords, is_initial=False)
-    for news in news_items:
-        try:
-            response = requests.get(news["titleLink"])
-            soup = BeautifulSoup(response.text, "html.parser")
-            article_title = soup.find("h1", class_="article-content__title").text
-            time = soup.find("time", class_="article-content__time").text
-            content_section = soup.find("section", class_="article-content__editor")
 
-            article_paragraphs = [
-                paragraph.text
-                for paragraph in content_section.find_all("p")
-                if paragraph.text.strip() != "" and "▪" not in paragraph.text
-            ]
-            detailed_news = {
-                "url": news["titleLink"],
-                "title": article_title,
-                "time": time,
-                "content": article_paragraphs,
-            }
-            detailed_news["content"] = " ".join(detailed_news["content"])
-            detailed_news["id"] = next(_id_counter)
-            news_list.append(detailed_news)
-        except requests.RequestException:
-            raise HTTPException(status_code=502, detail="Failed to fetch news from external source.")
+    for news in news_items:
+        detailed_news = udn_crawler.parse(news["titleLink"])
+        detailed_news_dict = {
+            "id": next(_id_counter),
+            "url": detailed_news.url,
+            "title": detailed_news.title,
+            "time": detailed_news.time,
+            "content": detailed_news.content,
+        }
+        news_list.append(detailed_news_dict)
+
     return sorted(news_list, key=lambda x: x["time"], reverse=True)
 
 @router.post("/news_summary_custom_model")
@@ -130,31 +119,35 @@ async def news_summary_custom_model(
     :return: Summary and reasons extracted from the article content.
     """
     logger = Logger(__name__, "news_summary_custom_model").get_logger()
+    if payload.ai_model == OpenAIConfig.model:
+        logger.info("OpenAI model selected")
+        client = OpenAIClient(OpenAIConfig.api_key)
+    elif payload.ai_model == AnthropicConfig.model:
+        logger.info("Anthropic model selected")
+        client = AnthropicAIClient(AnthropicConfig.api_key)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid model specified.")
+
     try:
-        if payload.ai_model == OpenAIConfig.model:
-            logger.info("OpenAI model selected")
-            client = OpenAIClient(OpenAIConfig.api_key)
-        elif payload.ai_model == AnthropicConfig.model:
-            logger.info("Anthropic model selected")
-            client = AnthropicAIClient(AnthropicConfig.api_key)
-        else:
-            raise HTTPException(status_code=400, detail="Invalid model specified.")
-
         summary_result = client.generate_summary(payload.content)
-        if not summary_result:
-            raise HTTPException(status_code=502, detail="Failed to generate summary from AI model.")
-
-        summary_result = json.loads(summary_result)
-        response = {
-            "summary": summary_result.get("影響", "No summary available"),
-            "reason": summary_result.get("原因", "No reasons available")
-        }
-        return response
-
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=502, detail="Invalid response format from AI model.")
     except requests.RequestException:
         raise HTTPException(status_code=503, detail="Failed to connect to the AI model API.")
+    if not summary_result:
+        raise HTTPException(status_code=502, detail="Failed to generate summary from AI model.")
+    
+    try:
+        summary_result = json.loads(summary_result)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=502, detail="Invalid response format from AI model.")
+    
+    response = {
+        "summary": summary_result.get("影響", "No summary available"),
+        "reason": summary_result.get("原因", "No reasons available")
+    }
+    return response
+
+    
+    
     
 @router.post("/{id}/upvote")
 def upvote_article(
