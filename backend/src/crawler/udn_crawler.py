@@ -67,21 +67,22 @@ class UDNCrawler(NewsCrawlerBase):
         # If 'page' is an int, create a list containing only that single page number.
         # page_range = range(*page) if isinstance(page, tuple) else [page]
         logger = Logger(__name__, "get_headline").get_logger()
-        try:
-            if isinstance(page, tuple):
-                start_page, end_page = page
-                page_range = range(start_page, end_page + 1)
-            else:
-                page_range = [page]
+        if isinstance(page, tuple):
+            start_page, end_page = page
+            page_range = range(start_page, end_page + 1)
+        else:
+            page_range = [page]
 
-            headlines = []
-            for page_num in page_range:
+        headlines = []
+        for page_num in page_range:
+            try:
                 headlines.extend(self._fetch_news(page_num, search_term))
-
-            logger.info(f"Fetched {len(headlines)} headlines for search term '{search_term}'.")
-            return headlines
-        except requests.exceptions.RequestException as e:
-            raise HTTPException(status_code=502, detail="Failed to fetch news from external source.")
+            except requests.exceptions.RequestException as e:
+                raise HTTPException(status_code=502, detail="Failed to fetch news from external source.")
+            
+        logger.info(f"Fetched {len(headlines)} headlines for search term '{search_term}'.")
+        return headlines
+        
 
     def _fetch_news(self, page: int, search_term: str) -> list[Headline]:
         params = self._create_search_params(page, search_term)
@@ -97,7 +98,7 @@ class UDNCrawler(NewsCrawlerBase):
                 "channelId": self.CHANNEL_ID,
                 "type": "searchword",
             }
-        except Exception as e:
+        except Exception:
             raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
     def _perform_request(self, url: str | None = None, params: dict | None = None) -> requests.Response:
@@ -114,17 +115,21 @@ class UDNCrawler(NewsCrawlerBase):
     def _parse_headlines(response: requests.Response) -> list[Headline]:
         try:
             data = response.json()
-            headlines = []
+        except ValueError:
+            raise HTTPException(status_code=502, detail="Failed to parse news data from external source.")
+
+        headlines = []
+        try:
             for news_item in data["lists"]:
                 headline = Headline(
                     title=news_item["title"],
                     url=news_item["titleLink"],
                 )
                 headlines.append(headline)
-            return headlines
-        
-        except ValueError as e:
+        except KeyError:
             raise HTTPException(status_code=502, detail="Failed to parse news data from external source.")
+        
+        return headlines
 
     def parse(self, url: str) -> News:
         logger = Logger(__name__, "parse").get_logger()
@@ -138,22 +143,30 @@ class UDNCrawler(NewsCrawlerBase):
     def _extract_news(soup: BeautifulSoup, url: str) -> News:
         try:
             article_title = soup.find("h1", class_="article-content__title").text
+        except AttributeError:
+            raise HTTPException(status_code=502, detail="Failed to extract article title from external source.")
+
+        try:
             time = soup.find("time", class_="article-content__time").text
+        except AttributeError:
+            raise HTTPException(status_code=502, detail="Failed to extract article time from external source.")
+
+        try:
             content_section = soup.find("section", class_="article-content__editor")
             content = " ".join(
                 paragraph.text
                 for paragraph in content_section.find_all("p")
                 if paragraph.text.strip() != "" and "▪" not in paragraph.text
             )
+        except AttributeError:
+            raise HTTPException(status_code=502, detail="Failed to extract article content from external source.")
 
-            return News(
-                url=url,
-                title=article_title,
-                time=time,
-                content=content,
-            )
-        except AttributeError as e:
-            raise HTTPException(status_code=502, detail="Failed to extract news data from external source.")
+        return News(
+            url=url,
+            title=article_title,
+            time=time,
+            content=content,
+        )
 
     def save(self, news: NewsWithSummary, db: Session):
         logger = Logger(__name__, "save").get_logger()
