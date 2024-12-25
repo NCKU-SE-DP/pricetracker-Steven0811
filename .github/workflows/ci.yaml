@@ -36,7 +36,7 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           
         run: |
