@@ -83,7 +83,6 @@ class UDNCrawler(NewsCrawlerBase):
         logger.info(f"Fetched {len(headlines)} headlines for search term '{search_term}'.")
         return headlines
         
-
     def _fetch_news(self, page: int, search_term: str) -> list[Headline]:
         params = self._create_search_params(page, search_term)
         response = self._perform_request(params=params)
