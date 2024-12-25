@@ -43,7 +43,6 @@ def read_news(news_db=Depends(session_opener)):
         )
     return formatted_news
 
-
 @router.get("/user_news")
 def read_user_news(
         news_db=Depends(session_opener),
@@ -145,10 +144,7 @@ async def news_summary_custom_model(
         "reason": summary_result.get("原因", "No reasons available")
     }
     return response
-
-    
-    
-    
+ 
 @router.post("/{id}/upvote")
 def upvote_article(
         id,

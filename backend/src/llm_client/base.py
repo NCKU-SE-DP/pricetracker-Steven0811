@@ -18,6 +18,7 @@ class ChatCompletionProvider:
         )
         return response.choices[0].message.content
     
+    
 class LLMClientBase(metaclass=abc.ABCMeta):
     _api_key : str
     
