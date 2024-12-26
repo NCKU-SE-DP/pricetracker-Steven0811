@@ -6,10 +6,7 @@ on:
       - 'main'
       - 'develop'
       - 'fix/integration-test'
-      - 'refactor/crawler-oop-implementation'
-      - 'refactor/llm_client'
-      - 'refactor/llm-client-template-methods-pattern'
-      - 'refactor/error_handling'
+      - 'refactor/*'
       
   pull_request:
     branches:
@@ -39,6 +36,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           
         run: |
           cd backend
@@ -49,6 +48,8 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
         run: |
           cd backend

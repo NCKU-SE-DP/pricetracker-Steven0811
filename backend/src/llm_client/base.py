@@ -17,6 +17,7 @@ class ChatCompletionProvider:
             temperature = self.temperature
         )
         return response.choices[0].message.content
+
     
 class LLMClientBase(metaclass=abc.ABCMeta):
     _api_key : str

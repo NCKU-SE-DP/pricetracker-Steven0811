@@ -105,7 +105,6 @@ class NewsCrawlerBase(metaclass=abc.ABCMeta):
         logger.info(f"Valid URL: {url}")
         return self.parse(url)
 
-
     @staticmethod
     @abc.abstractmethod
     def save(news: News, db: Session | None):
